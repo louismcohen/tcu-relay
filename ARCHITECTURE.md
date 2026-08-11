@@ -23,7 +23,9 @@ LiveWire TCU → c.technology cloud
 | `src/config.ts` | Zod-validated env |
 | `src/logger.ts` | Pino (redacts secrets) |
 | `src/http.ts` | Health (and later login / status / SSE / static UI) |
-| `src/ctech/` | Login, REST bootstrap, WebSocket |
+| `src/ctech/auth.ts` | Login + token refresh (60s margin) |
+| `src/ctech/rest.ts` | `GET /vehicle/{id}/status` |
+| `src/types/ctech.ts` | Zod envelopes for login + status |
 | `src/mapper.ts` | CT status → ABRP `tlm` |
 | `src/abrp/` | Telemetry POST |
 | `src/relay.ts` | Coalesce + throttle + snapshot |
