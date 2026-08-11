@@ -25,13 +25,13 @@ LiveWire TCU → c.technology cloud
 | `src/config.ts` | Zod-validated env |
 | `src/logger.ts` | Pino (redacts secrets) |
 | `src/http.ts` | Health (and later login / status / SSE / static UI) |
-| `src/ctech/auth.ts` | Login + token refresh (60s margin) |
+| `src/ctech/auth.ts` | `createCtechAuth` — login + token refresh (60s margin) |
 | `src/ctech/rest.ts` | `GET /vehicle/{id}/status` |
-| `src/ctech/ws.ts` | WSS connect, auth message, reconnect backoff |
+| `src/ctech/ws.ts` | `createCtechSocket` — WSS auth + reconnect backoff |
 | `src/types/ctech.ts` | Zod envelopes for login + status |
 | `src/mapper.ts` | CT status → ABRP `tlm` |
-| `src/abrp/client.ts` | `POST /1/tlm/send` |
-| `src/relay.ts` | Coalesce + throttle + `StatusSnapshot` |
+| `src/abrp/client.ts` | `createAbrpClient` — `POST /1/tlm/send` |
+| `src/relay.ts` | `createRelay` — coalesce + throttle + `StatusSnapshot` |
 | `src/types/status.ts` | Dashboard/health snapshot schema |
 | `web/` | Vite + React + shadcn dashboard |
 
@@ -44,6 +44,7 @@ LiveWire TCU → c.technology cloud
 - **Parked speed is 0** when `status === "PARK"` or ignition is off.
 - **No `power` / HV `voltage` / `current`** until those fields appear in the feed.
 - **`hd_charge_status === 0`** means not charging until a charging snapshot confirms the enum.
+- **Factories over classes.** Stateful modules are `createX` closures; only `Error` subclasses use `class`.
 
 ## Field mapping
 

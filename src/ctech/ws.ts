@@ -17,116 +17,77 @@ export type CtechWsState =
 
 export type StatusListener = (status: VehicleStatusData) => void;
 
+export interface CtechSocket {
+  getState: () => CtechWsState;
+  getLastParseError: () => string | undefined;
+  onStatus: (listener: StatusListener) => () => void;
+  start: () => void;
+  stop: () => void;
+}
+
 const BACKOFF_INITIAL_MS = 1_000;
 const BACKOFF_MAX_MS = 60_000;
 
-export class CtechWebSocket {
-  private socket: WebSocket | undefined;
-  private state: CtechWsState = "disconnected";
-  private listeners = new Set<StatusListener>();
-  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-  private backoffMs = BACKOFF_INITIAL_MS;
-  private stopped = true;
-  private lastParseError: string | undefined;
+export function createCtechSocket(
+  config: Config,
+  auth: CtechAuth,
+  logger: Logger,
+): CtechSocket {
+  let socket: WebSocket | undefined;
+  let state: CtechWsState = "disconnected";
+  const listeners = new Set<StatusListener>();
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  let backoffMs = BACKOFF_INITIAL_MS;
+  let stopped = true;
+  let lastParseError: string | undefined;
 
-  public constructor(
-    private readonly config: Config,
-    private readonly auth: CtechAuth,
-    private readonly logger: Logger,
-  ) {}
-
-  public getState(): CtechWsState {
-    return this.state;
-  }
-
-  public getLastParseError(): string | undefined {
-    return this.lastParseError;
-  }
-
-  public onStatus(listener: StatusListener): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  public start(): void {
-    this.stopped = false;
-    void this.connect();
-  }
-
-  public stop(): void {
-    this.stopped = true;
-    this.clearReconnect();
-    this.closeSocket();
-    this.setState("disconnected");
-  }
-
-  private setState(state: CtechWsState): void {
-    if (this.state === state) {
+  function setState(next: CtechWsState): void {
+    if (state === next) {
       return;
     }
-    this.state = state;
-    this.logger.info({ wsState: state }, "c.technology websocket state");
+    state = next;
+    logger.info({ wsState: next }, "c.technology websocket state");
   }
 
-  private async connect(): Promise<void> {
-    if (this.stopped) {
-      return;
+  function clearReconnect(): void {
+    if (reconnectTimer !== undefined) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = undefined;
     }
-    this.setState(this.backoffMs === BACKOFF_INITIAL_MS ? "connecting" : "reconnecting");
-
-    let authorization: string;
-    try {
-      authorization = await this.auth.authorizationHeader();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "auth failed";
-      this.logger.warn({ err: message }, "websocket deferred until auth succeeds");
-      this.scheduleReconnect();
-      return;
-    }
-
-    const socket = new WebSocket(CTECH_WS_URL);
-    this.socket = socket;
-
-    socket.on("open", () => {
-      this.setState("authenticating");
-      const authMessage = { authorization };
-      socket.send(JSON.stringify(authMessage));
-      this.logger.debug("sent websocket auth");
-      this.setState("connected");
-      this.backoffMs = BACKOFF_INITIAL_MS;
-    });
-
-    socket.on("message", (data: RawData) => {
-      this.handleMessage(data);
-    });
-
-    socket.on("error", (error: Error) => {
-      this.logger.warn({ err: error.message }, "c.technology websocket error");
-    });
-
-    socket.on("close", (code: number, reason: Buffer) => {
-      this.logger.warn(
-        { code, reason: reason.toString("utf8") },
-        "c.technology websocket closed",
-      );
-      if (this.socket === socket) {
-        this.socket = undefined;
-      }
-      if (!this.stopped) {
-        this.scheduleReconnect();
-      }
-    });
   }
 
-  private handleMessage(data: RawData): void {
+  function closeSocket(): void {
+    if (socket === undefined) {
+      return;
+    }
+    socket.removeAllListeners();
+    if (
+      socket.readyState === WebSocket.OPEN ||
+      socket.readyState === WebSocket.CONNECTING
+    ) {
+      socket.close();
+    }
+    socket = undefined;
+  }
+
+  function scheduleReconnect(): void {
+    clearReconnect();
+    setState("reconnecting");
+    const delay = backoffMs;
+    backoffMs = Math.min(backoffMs * 2, BACKOFF_MAX_MS);
+    logger.info({ delayMs: delay }, "reconnecting c.technology websocket");
+    reconnectTimer = setTimeout(() => {
+      void connect();
+    }, delay);
+  }
+
+  function handleMessage(data: RawData): void {
     let text: string;
     try {
       text = rawDataToUtf8(data);
     } catch (error: unknown) {
-      this.lastParseError = error instanceof Error ? error.message : "binary decode failed";
-      this.logger.warn({ err: this.lastParseError }, "websocket frame was not utf-8 text");
+      lastParseError = error instanceof Error ? error.message : "binary decode failed";
+      logger.warn({ err: lastParseError }, "websocket frame was not utf-8 text");
       return;
     }
 
@@ -134,66 +95,104 @@ export class CtechWebSocket {
     try {
       raw = JSON.parse(text) as unknown;
     } catch {
-      this.lastParseError = "message was not valid JSON";
-      this.logger.warn("websocket message was not valid JSON");
+      lastParseError = "message was not valid JSON";
+      logger.warn("websocket message was not valid JSON");
       return;
     }
 
     const parsed = wsVehicleStatusMessageSchema.safeParse(raw);
     if (!parsed.success) {
-      this.logger.debug({ preview: text.slice(0, 200) }, "ignored non-status websocket message");
+      logger.debug({ preview: text.slice(0, 200) }, "ignored non-status websocket message");
       return;
     }
 
     const channel = parsed.data.header.channel;
     if (channel !== undefined && channel !== "vehicle/status") {
-      this.logger.debug({ channel }, "ignored websocket channel");
+      logger.debug({ channel }, "ignored websocket channel");
       return;
     }
 
     const status = parsed.data.data;
     const vehicleId = status.vehicle_id;
-    if (vehicleId !== undefined && vehicleId !== this.config.CTECH_VEHICLE_ID) {
+    if (vehicleId !== undefined && vehicleId !== config.CTECH_VEHICLE_ID) {
       return;
     }
 
-    this.lastParseError = undefined;
-    for (const listener of this.listeners) {
+    lastParseError = undefined;
+    for (const listener of listeners) {
       listener(status);
     }
   }
 
-  private scheduleReconnect(): void {
-    this.clearReconnect();
-    this.setState("reconnecting");
-    const delay = this.backoffMs;
-    this.backoffMs = Math.min(this.backoffMs * 2, BACKOFF_MAX_MS);
-    this.logger.info({ delayMs: delay }, "reconnecting c.technology websocket");
-    this.reconnectTimer = setTimeout(() => {
-      void this.connect();
-    }, delay);
-  }
-
-  private clearReconnect(): void {
-    if (this.reconnectTimer !== undefined) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = undefined;
-    }
-  }
-
-  private closeSocket(): void {
-    if (this.socket === undefined) {
+  async function connect(): Promise<void> {
+    if (stopped) {
       return;
     }
-    this.socket.removeAllListeners();
-    if (
-      this.socket.readyState === WebSocket.OPEN ||
-      this.socket.readyState === WebSocket.CONNECTING
-    ) {
-      this.socket.close();
+    setState(backoffMs === BACKOFF_INITIAL_MS ? "connecting" : "reconnecting");
+
+    let authorization: string;
+    try {
+      authorization = await auth.authorizationHeader();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "auth failed";
+      logger.warn({ err: message }, "websocket deferred until auth succeeds");
+      scheduleReconnect();
+      return;
     }
-    this.socket = undefined;
+
+    const next = new WebSocket(CTECH_WS_URL);
+    socket = next;
+
+    next.on("open", () => {
+      setState("authenticating");
+      next.send(JSON.stringify({ authorization }));
+      logger.debug("sent websocket auth");
+      setState("connected");
+      backoffMs = BACKOFF_INITIAL_MS;
+    });
+
+    next.on("message", (data: RawData) => {
+      handleMessage(data);
+    });
+
+    next.on("error", (error: Error) => {
+      logger.warn({ err: error.message }, "c.technology websocket error");
+    });
+
+    next.on("close", (code: number, reason: Buffer) => {
+      logger.warn(
+        { code, reason: reason.toString("utf8") },
+        "c.technology websocket closed",
+      );
+      if (socket === next) {
+        socket = undefined;
+      }
+      if (!stopped) {
+        scheduleReconnect();
+      }
+    });
   }
+
+  return {
+    getState: () => state,
+    getLastParseError: () => lastParseError,
+    onStatus(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    start() {
+      stopped = false;
+      void connect();
+    },
+    stop() {
+      stopped = true;
+      clearReconnect();
+      closeSocket();
+      setState("disconnected");
+    },
+  };
 }
 
 function rawDataToUtf8(data: RawData): string {

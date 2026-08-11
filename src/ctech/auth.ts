@@ -4,77 +4,48 @@ import { ctechLoginResponseSchema } from "../types/ctech.js";
 import { CTECH_API_BASE, TOKEN_REFRESH_MARGIN_MS } from "./constants.js";
 
 export class CtechAuthError extends Error {
-  public override readonly name = "CtechAuthError";
+  override readonly name = "CtechAuthError";
 
-  public constructor(
+  constructor(
     message: string,
-    public readonly statusCode?: number,
+    readonly statusCode?: number,
   ) {
     super(message);
   }
 }
 
-export class CtechAuth {
-  private token: string | undefined;
-  private expiryMs: number | undefined;
+export interface CtechAuth {
+  getToken: () => Promise<string>;
+  authorizationHeader: () => Promise<string>;
+  tokenExpiryIso: () => string | undefined;
+  invalidate: () => void;
+}
 
-  public constructor(
-    private readonly config: Config,
-    private readonly logger: Logger,
-  ) {}
+export function createCtechAuth(config: Config, logger: Logger): CtechAuth {
+  let token: string | undefined;
+  let expiryMs: number | undefined;
 
-  public async getToken(): Promise<string> {
-    if (this.isFresh()) {
-      if (this.token === undefined) {
-        throw new CtechAuthError("token missing despite fresh session");
-      }
-      return this.token;
-    }
-    await this.login();
-    if (this.token === undefined) {
-      throw new CtechAuthError("login succeeded without a token");
-    }
-    return this.token;
-  }
-
-  public async authorizationHeader(): Promise<string> {
-    const token = await this.getToken();
-    return `Token ${token}`;
-  }
-
-  public tokenExpiryIso(): string | undefined {
-    if (this.expiryMs === undefined) {
-      return undefined;
-    }
-    return new Date(this.expiryMs).toISOString();
-  }
-
-  public invalidate(): void {
-    this.token = undefined;
-    this.expiryMs = undefined;
-  }
-
-  private isFresh(): boolean {
+  function isFresh(): boolean {
     return (
-      this.token !== undefined &&
-      this.expiryMs !== undefined &&
-      this.expiryMs - Date.now() > TOKEN_REFRESH_MARGIN_MS
+      token !== undefined &&
+      expiryMs !== undefined &&
+      expiryMs - Date.now() > TOKEN_REFRESH_MARGIN_MS
     );
   }
 
-  private async login(): Promise<void> {
+  async function login(): Promise<void> {
     const response = await fetch(`${CTECH_API_BASE}/account/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        email: this.config.CTECH_EMAIL,
-        password: this.config.CTECH_PASSWORD,
+        email: config.CTECH_EMAIL,
+        password: config.CTECH_PASSWORD,
       }),
     });
 
     const raw: unknown = await response.json();
     if (!response.ok) {
-      this.logger.warn({ status: response.status }, "c.technology login failed");
+      logger.warn({ status: response.status }, "c.technology login failed");
       throw new CtechAuthError(
         `login HTTP ${String(response.status)}`,
         response.status,
@@ -83,7 +54,7 @@ export class CtechAuth {
 
     const parsed = ctechLoginResponseSchema.safeParse(raw);
     if (!parsed.success) {
-      this.logger.error(
+      logger.error(
         { issues: parsed.error.issues },
         "c.technology login response failed validation",
       );
@@ -96,15 +67,46 @@ export class CtechAuth {
       );
     }
 
-    this.token = parsed.data.data.token;
-    this.expiryMs = Date.parse(parsed.data.data.expiry);
-    if (Number.isNaN(this.expiryMs)) {
+    token = parsed.data.data.token;
+    expiryMs = Date.parse(parsed.data.data.expiry);
+    if (Number.isNaN(expiryMs)) {
       throw new CtechAuthError("login expiry was not a valid datetime");
     }
 
-    this.logger.info(
+    logger.info(
       { expiry: parsed.data.data.expiry },
       "c.technology login succeeded",
     );
   }
+
+  async function getToken(): Promise<string> {
+    if (isFresh()) {
+      if (token === undefined) {
+        throw new CtechAuthError("token missing despite fresh session");
+      }
+      return token;
+    }
+    await login();
+    if (token === undefined) {
+      throw new CtechAuthError("login succeeded without a token");
+    }
+    return token;
+  }
+
+  return {
+    getToken,
+    async authorizationHeader() {
+      return `Token ${await getToken()}`;
+    },
+    tokenExpiryIso() {
+      if (expiryMs === undefined) {
+        return undefined;
+      }
+      return new Date(expiryMs).toISOString();
+    },
+    invalidate() {
+      token = undefined;
+      expiryMs = undefined;
+    },
+  };
 }

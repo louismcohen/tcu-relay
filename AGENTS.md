@@ -20,3 +20,5 @@
 | `tests/` | Vitest |
 
 Single pnpm package. Node 22. No Docker.
+
+Style: `createX` factories + functions. No service classes / `this` / `private`. See [CLAUDE.md](CLAUDE.md).

@@ -15,52 +15,56 @@ export type AbrpSendResult = {
 };
 
 export class AbrpClientError extends Error {
-  public override readonly name = "AbrpClientError";
+  override readonly name = "AbrpClientError";
 
-  public constructor(
+  constructor(
     message: string,
-    public readonly statusCode?: number,
+    readonly statusCode?: number,
   ) {
     super(message);
   }
 }
 
-export class AbrpClient {
-  public constructor(
-    private readonly apiKey: string,
-    private readonly token: string,
-    private readonly logger: Logger,
-  ) {}
+export interface AbrpClient {
+  send: (tlm: AbrpTlm) => Promise<AbrpSendResult>;
+}
 
-  public async send(tlm: AbrpTlm): Promise<AbrpSendResult> {
-    const response = await fetch(ABRP_SEND_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `APIKEY ${this.apiKey}`,
-      },
-      body: JSON.stringify({ token: this.token, tlm }),
-    });
+export function createAbrpClient(
+  apiKey: string,
+  token: string,
+  logger: Logger,
+): AbrpClient {
+  return {
+    async send(tlm) {
+      const response = await fetch(ABRP_SEND_URL, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `APIKEY ${apiKey}`,
+        },
+        body: JSON.stringify({ token, tlm }),
+      });
 
-    const raw: unknown = await readJson(response);
-    if (!response.ok) {
-      this.logger.warn({ status: response.status }, "ABRP send failed");
-      throw new AbrpClientError(
-        `ABRP HTTP ${String(response.status)}`,
-        response.status,
-      );
-    }
+      const raw: unknown = await readJson(response);
+      if (!response.ok) {
+        logger.warn({ status: response.status }, "ABRP send failed");
+        throw new AbrpClientError(
+          `ABRP HTTP ${String(response.status)}`,
+          response.status,
+        );
+      }
 
-    const parsed = abrpSendResponseSchema.safeParse(raw);
-    if (!parsed.success) {
-      throw new AbrpClientError("ABRP response failed validation");
-    }
+      const parsed = abrpSendResponseSchema.safeParse(raw);
+      if (!parsed.success) {
+        throw new AbrpClientError("ABRP response failed validation");
+      }
 
-    if (parsed.data.missing !== undefined && parsed.data.missing !== "") {
-      return { status: parsed.data.status, missing: parsed.data.missing };
-    }
-    return { status: parsed.data.status };
-  }
+      if (parsed.data.missing !== undefined && parsed.data.missing !== "") {
+        return { status: parsed.data.status, missing: parsed.data.missing };
+      }
+      return { status: parsed.data.status };
+    },
+  };
 }
 
 async function readJson(response: Response): Promise<unknown> {

@@ -7,11 +7,11 @@ import type { CtechAuth } from "./auth.js";
 import { CTECH_API_BASE } from "./constants.js";
 
 export class CtechRestError extends Error {
-  public override readonly name = "CtechRestError";
+  override readonly name = "CtechRestError";
 
-  public constructor(
+  constructor(
     message: string,
-    public readonly statusCode?: number,
+    readonly statusCode?: number,
   ) {
     super(message);
   }

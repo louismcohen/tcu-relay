@@ -10,6 +10,14 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing mapping, auth, or relay 
 - No `as any`, `@ts-expect-error`, or eslint-disable for `no-explicit-any` / `no-unsafe-*`.
 - `pnpm typecheck` and `pnpm lint` must stay clean.
 
+## Style (modules, not classes)
+
+- Prefer **functions + closures**. Stateful services are `createX(...)` factories that close over `let` state and return a typed object of functions.
+- Do **not** add `class` / `private` / `public` / `this` for app services (`CtechAuth`, socket, relay, ABRP client).
+- Exception: `class FooError extends Error` is fine (`instanceof` needs it). Keep those thin — no `public`/`private` ceremony.
+- Pure transforms stay as exported functions (`mapVehicleStatusToTlm`).
+- React components stay function components.
+
 ## Git
 
 - Conventional commits (`feat`, `fix`, `chore`, `docs`, `test`, `refactor`).

@@ -2,7 +2,7 @@ import type { Logger } from "pino";
 import type { AbrpClient } from "./abrp/client.js";
 import type { Config } from "./config.js";
 import type { CtechAuth } from "./ctech/auth.js";
-import type { CtechWebSocket } from "./ctech/ws.js";
+import type { CtechSocket } from "./ctech/ws.js";
 import { defaultMapperContext, isParked, mapVehicleStatusToTlm } from "./mapper.js";
 import type { AbrpTlm } from "./types/abrp.js";
 import type { VehicleStatusData } from "./types/ctech.js";
@@ -11,74 +11,52 @@ import type { AbrpSnapshot, CtechSnapshot, StatusSnapshot } from "./types/status
 const BACKOFF_INITIAL_MS = 2_000;
 const BACKOFF_MAX_MS = 60_000;
 
-export class Relay {
-  private latest: VehicleStatusData | undefined;
-  private sendTimer: ReturnType<typeof setTimeout> | undefined;
-  private inFlight = false;
-  private backoffMs = 0;
-  private lastSentAt: string | undefined;
-  private lastResult: string | undefined;
-  private lastMissing: string | undefined;
-  private lastTlm: AbrpTlm | undefined;
-  private lastMessageAt: string | undefined;
-  private readonly changeListeners = new Set<() => void>();
+export interface Relay {
+  onChange: (listener: () => void) => () => void;
+  ingest: (status: VehicleStatusData) => void;
+  snapshot: () => StatusSnapshot;
+}
 
-  public constructor(
-    private readonly config: Config,
-    private readonly logger: Logger,
-    private readonly startedAt: string,
-    private readonly auth: CtechAuth,
-    private readonly socket: CtechWebSocket,
-    private readonly abrp: AbrpClient,
-  ) {}
+export function createRelay(
+  config: Config,
+  logger: Logger,
+  startedAt: string,
+  auth: CtechAuth,
+  socket: CtechSocket,
+  abrp: AbrpClient,
+): Relay {
+  let latest: VehicleStatusData | undefined;
+  let sendTimer: ReturnType<typeof setTimeout> | undefined;
+  let inFlight = false;
+  let backoffMs = 0;
+  let lastSentAt: string | undefined;
+  let lastResult: string | undefined;
+  let lastMissing: string | undefined;
+  let lastTlm: AbrpTlm | undefined;
+  let lastMessageAt: string | undefined;
+  const changeListeners = new Set<() => void>();
 
-  public onChange(listener: () => void): () => void {
-    this.changeListeners.add(listener);
-    return () => {
-      this.changeListeners.delete(listener);
-    };
+  function emitChange(): void {
+    for (const listener of changeListeners) {
+      listener();
+    }
   }
 
-  public ingest(status: VehicleStatusData): void {
-    const immediate =
-      this.lastSentAt === undefined &&
-      this.sendTimer === undefined &&
-      !this.inFlight;
-    this.latest = status;
-    this.lastMessageAt = new Date().toISOString();
-    this.emitChange();
-    this.schedule(immediate ? 0 : this.config.ABRP_SEND_INTERVAL_MS);
-  }
-
-  public snapshot(): StatusSnapshot {
-    return {
-      startedAt: this.startedAt,
-      vehicleId: this.config.CTECH_VEHICLE_ID,
-      dryRun: this.config.DRY_RUN,
-      sendIntervalMs: this.config.ABRP_SEND_INTERVAL_MS,
-      uptimeSeconds: Math.floor(
-        (Date.now() - Date.parse(this.startedAt)) / 1000,
-      ),
-      ctech: this.ctechSnapshot(),
-      abrp: this.abrpSnapshot(),
-    };
-  }
-
-  private ctechSnapshot(): CtechSnapshot {
-    const status = this.latest;
+  function ctechSnapshot(): CtechSnapshot {
+    const status = latest;
     const hd = status?.vehicle_status_hd;
     const snapshot: CtechSnapshot = {
-      wsState: this.socket.getState(),
+      wsState: socket.getState(),
     };
 
-    const tokenExpiry = this.auth.tokenExpiryIso();
+    const tokenExpiry = auth.tokenExpiryIso();
     if (tokenExpiry !== undefined) {
       snapshot.tokenExpiry = tokenExpiry;
     }
-    if (this.lastMessageAt !== undefined) {
-      snapshot.lastMessageAt = this.lastMessageAt;
+    if (lastMessageAt !== undefined) {
+      snapshot.lastMessageAt = lastMessageAt;
     }
-    const parseError = this.socket.getLastParseError();
+    const parseError = socket.getLastParseError();
     if (parseError !== undefined) {
       snapshot.lastParseError = parseError;
     }
@@ -110,95 +88,119 @@ export class Relay {
     return snapshot;
   }
 
-  private abrpSnapshot(): AbrpSnapshot {
+  function abrpSnapshot(): AbrpSnapshot {
     const snapshot: AbrpSnapshot = {};
-    if (this.lastSentAt !== undefined) {
-      snapshot.lastSentAt = this.lastSentAt;
+    if (lastSentAt !== undefined) {
+      snapshot.lastSentAt = lastSentAt;
     }
-    if (this.lastResult !== undefined) {
-      snapshot.lastResult = this.lastResult;
+    if (lastResult !== undefined) {
+      snapshot.lastResult = lastResult;
     }
-    if (this.lastMissing !== undefined) {
-      snapshot.lastMissing = this.lastMissing;
+    if (lastMissing !== undefined) {
+      snapshot.lastMissing = lastMissing;
     }
-    if (this.lastTlm !== undefined) {
-      snapshot.lastTlm = this.lastTlm;
+    if (lastTlm !== undefined) {
+      snapshot.lastTlm = lastTlm;
     }
-    if (this.backoffMs > 0) {
-      snapshot.backoffMs = this.backoffMs;
+    if (backoffMs > 0) {
+      snapshot.backoffMs = backoffMs;
     }
     return snapshot;
   }
 
-  private emitChange(): void {
-    for (const listener of this.changeListeners) {
-      listener();
-    }
+  function snapshot(): StatusSnapshot {
+    return {
+      startedAt,
+      vehicleId: config.CTECH_VEHICLE_ID,
+      dryRun: config.DRY_RUN,
+      sendIntervalMs: config.ABRP_SEND_INTERVAL_MS,
+      uptimeSeconds: Math.floor((Date.now() - Date.parse(startedAt)) / 1000),
+      ctech: ctechSnapshot(),
+      abrp: abrpSnapshot(),
+    };
   }
 
-  private schedule(delayMs: number): void {
-    if (this.sendTimer !== undefined || this.inFlight) {
+  function schedule(delayMs: number): void {
+    if (sendTimer !== undefined || inFlight) {
       return;
     }
-    const delay = Math.max(delayMs, this.backoffMs);
-    this.sendTimer = setTimeout(() => {
-      this.sendTimer = undefined;
-      void this.flush();
+    const delay = Math.max(delayMs, backoffMs);
+    sendTimer = setTimeout(() => {
+      sendTimer = undefined;
+      void flush();
     }, delay);
   }
 
-  private async flush(): Promise<void> {
-    const status = this.latest;
+  async function flush(): Promise<void> {
+    const status = latest;
     if (status === undefined) {
       return;
     }
 
     const tlm = mapVehicleStatusToTlm(
       status,
-      defaultMapperContext(this.config.ABRP_CAR_MODEL),
+      defaultMapperContext(config.ABRP_CAR_MODEL),
     );
     if (tlm === undefined) {
-      this.logger.warn("skipped ABRP send: mapper produced no telemetry");
+      logger.warn("skipped ABRP send: mapper produced no telemetry");
       return;
     }
 
-    this.inFlight = true;
+    inFlight = true;
     try {
-      if (this.config.DRY_RUN) {
-        this.lastTlm = tlm;
-        this.lastSentAt = new Date().toISOString();
-        this.lastResult = "dry_run";
-        this.lastMissing = undefined;
-        this.backoffMs = 0;
-        this.logger.info({ tlm }, "DRY_RUN ABRP telemetry");
-        this.emitChange();
+      if (config.DRY_RUN) {
+        lastTlm = tlm;
+        lastSentAt = new Date().toISOString();
+        lastResult = "dry_run";
+        lastMissing = undefined;
+        backoffMs = 0;
+        logger.info({ tlm }, "DRY_RUN ABRP telemetry");
+        emitChange();
         return;
       }
 
-      const result = await this.abrp.send(tlm);
-      this.lastTlm = tlm;
-      this.lastSentAt = new Date().toISOString();
-      this.lastResult = result.status;
-      this.lastMissing = result.missing;
-      this.backoffMs = 0;
-      this.logger.info(
+      const result = await abrp.send(tlm);
+      lastTlm = tlm;
+      lastSentAt = new Date().toISOString();
+      lastResult = result.status;
+      lastMissing = result.missing;
+      backoffMs = 0;
+      logger.info(
         { status: result.status, missing: result.missing },
         "sent ABRP telemetry",
       );
-      this.emitChange();
+      emitChange();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "ABRP send failed";
-      this.lastResult = "error";
-      this.lastMissing = message;
-      this.backoffMs =
-        this.backoffMs === 0
+      lastResult = "error";
+      lastMissing = message;
+      backoffMs =
+        backoffMs === 0
           ? BACKOFF_INITIAL_MS
-          : Math.min(this.backoffMs * 2, BACKOFF_MAX_MS);
-      this.logger.warn({ err: message, backoffMs: this.backoffMs }, "ABRP send failed");
-      this.emitChange();
+          : Math.min(backoffMs * 2, BACKOFF_MAX_MS);
+      logger.warn({ err: message, backoffMs }, "ABRP send failed");
+      emitChange();
     } finally {
-      this.inFlight = false;
-      this.schedule(this.config.ABRP_SEND_INTERVAL_MS);
+      inFlight = false;
+      schedule(config.ABRP_SEND_INTERVAL_MS);
     }
   }
+
+  return {
+    onChange(listener) {
+      changeListeners.add(listener);
+      return () => {
+        changeListeners.delete(listener);
+      };
+    },
+    ingest(status) {
+      const immediate =
+        lastSentAt === undefined && sendTimer === undefined && !inFlight;
+      latest = status;
+      lastMessageAt = new Date().toISOString();
+      emitChange();
+      schedule(immediate ? 0 : config.ABRP_SEND_INTERVAL_MS);
+    },
+    snapshot,
+  };
 }
