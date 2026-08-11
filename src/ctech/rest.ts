@@ -4,7 +4,7 @@ import {
   type VehicleStatusData,
 } from "../types/ctech.js";
 import type { CtechAuth } from "./auth.js";
-import { CTECH_API_BASE } from "./constants.js";
+import { ctechUrl, readResponseBody } from "./constants.js";
 
 export class CtechRestError extends Error {
   override readonly name = "CtechRestError";
@@ -24,7 +24,7 @@ export async function fetchVehicleStatus(
 ): Promise<VehicleStatusData> {
   const authorization = await auth.authorizationHeader();
   const response = await fetch(
-    `${CTECH_API_BASE}/vehicle/${encodeURIComponent(vehicleId)}/status`,
+    ctechUrl(`vehicle/${encodeURIComponent(vehicleId)}/status`),
     {
       headers: { Authorization: authorization },
     },
@@ -35,8 +35,9 @@ export async function fetchVehicleStatus(
     throw new CtechRestError("vehicle status unauthorized", 401);
   }
 
-  const raw: unknown = await response.json();
+  const raw = await readResponseBody(response);
   if (!response.ok) {
+    logger.warn({ status: response.status, body: raw }, "vehicle status failed");
     throw new CtechRestError(
       `vehicle status HTTP ${String(response.status)}`,
       response.status,

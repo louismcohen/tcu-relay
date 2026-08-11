@@ -1,7 +1,7 @@
 import type { Logger } from "pino";
 import type { Config } from "../config.js";
 import { ctechLoginResponseSchema } from "../types/ctech.js";
-import { CTECH_API_BASE, TOKEN_REFRESH_MARGIN_MS } from "./constants.js";
+import { ctechUrl, readResponseBody, TOKEN_REFRESH_MARGIN_MS } from "./constants.js";
 
 export class CtechAuthError extends Error {
   override readonly name = "CtechAuthError";
@@ -34,7 +34,7 @@ export function createCtechAuth(config: Config, logger: Logger): CtechAuth {
   }
 
   async function login(): Promise<void> {
-    const response = await fetch(`${CTECH_API_BASE}/account/login`, {
+    const response = await fetch(ctechUrl("account/login"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -43,9 +43,9 @@ export function createCtechAuth(config: Config, logger: Logger): CtechAuth {
       }),
     });
 
-    const raw: unknown = await response.json();
+    const raw = await readResponseBody(response);
     if (!response.ok) {
-      logger.warn({ status: response.status }, "c.technology login failed");
+      logger.warn({ status: response.status, body: raw }, "c.technology login failed");
       throw new CtechAuthError(
         `login HTTP ${String(response.status)}`,
         response.status,

@@ -66,10 +66,12 @@ LiveWire TCU → c.technology cloud
 ## Auth
 
 ```
-POST https://api.ctechnology.io/api/v2.2/account/login
+POST https://api.ctechnology.io/api/v2.2/account/login/
 Authorization: Token {token}
 WSS wss://api.ctechnology.io  →  {"authorization":"Token …"} on auth
 ```
+
+REST paths must end with `/`. A 301 from the slashless URL makes `fetch` retry POST as GET, which returns `Method not allowed`.
 
 Refresh before `expiry` or on 401.
 
