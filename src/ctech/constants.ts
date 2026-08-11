@@ -2,10 +2,13 @@ export const CTECH_API_BASE = "https://api.ctechnology.io/api/v2.2";
 export const CTECH_WS_URL = "wss://api.ctechnology.io";
 export const TOKEN_REFRESH_MARGIN_MS = 60_000;
 
-/** Django-style API: no trailing slash → 301, and fetch then retries POST as GET. */
-export function ctechUrl(path: string): string {
+/**
+ * Login POST must use a trailing slash (else 301 turns POST into GET).
+ * Vehicle status GET must not (slashless `/status` exists; `/status/` is 404).
+ */
+export function ctechUrl(path: string, trailingSlash = true): string {
   const trimmed = path.replace(/^\/+/u, "").replace(/\/+$/u, "");
-  return `${CTECH_API_BASE}/${trimmed}/`;
+  return `${CTECH_API_BASE}/${trimmed}${trailingSlash ? "/" : ""}`;
 }
 
 export async function readResponseBody(response: Response): Promise<unknown> {

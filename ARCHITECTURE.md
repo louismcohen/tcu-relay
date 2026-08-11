@@ -71,7 +71,8 @@ Authorization: Token {token}
 WSS wss://api.ctechnology.io  →  {"authorization":"Token …"} on auth
 ```
 
-REST paths must end with `/`. A 301 from the slashless URL makes `fetch` retry POST as GET, which returns `Method not allowed`.
+POST `/account/login/` needs a trailing slash (a 301 would turn POST into GET).  
+GET `/vehicle/{id}/status` must **not** have a trailing slash (`/status/` is 404).
 
 `header.message` may be `null` (not only omitted or `""`). Schemas treat it as `string | null`.
 

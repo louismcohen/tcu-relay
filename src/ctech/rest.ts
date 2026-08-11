@@ -24,7 +24,7 @@ export async function fetchVehicleStatus(
 ): Promise<VehicleStatusData> {
   const authorization = await auth.authorizationHeader();
   const response = await fetch(
-    ctechUrl(`vehicle/${encodeURIComponent(vehicleId)}/status`),
+    ctechUrl(`vehicle/${encodeURIComponent(vehicleId)}/status`, false),
     {
       headers: { Authorization: authorization },
     },
