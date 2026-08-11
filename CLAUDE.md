@@ -26,6 +26,8 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing mapping, auth, or relay 
 
 ## Runtime
 
-- Dashboard login must not call CT `/account/login`.
+- Dashboard login must not call CT `/account/login`. Compare to env with `timingSafeEqual`.
 - `DRY_RUN=true` must not POST to ABRP.
 - Do not add Docker or a second deployable service.
+- Local UI: `pnpm dev` then Vite `:5173`. Production: `pnpm build` + `pnpm start` serves `dist/web`.
+- Railway: build `pnpm build`, start `pnpm start`, health `GET /health`.

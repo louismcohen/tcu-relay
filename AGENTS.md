@@ -15,7 +15,8 @@
 | `src/abrp/` | ABRP client |
 | `src/relay.ts` | Loop + snapshot |
 | `src/types/` | Zod schemas |
-| `web/` | Dashboard UI |
+| `web/` | Dashboard UI (Vite + React + shadcn) |
+| `src/session.ts` | Signed dashboard cookie |
 | `tests/` | Vitest |
 
 Single pnpm package. Node 22. No Docker.
