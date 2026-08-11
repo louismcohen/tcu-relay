@@ -73,6 +73,8 @@ WSS wss://api.ctechnology.io  →  {"authorization":"Token …"} on auth
 
 REST paths must end with `/`. A 301 from the slashless URL makes `fetch` retry POST as GET, which returns `Method not allowed`.
 
+`header.message` may be `null` (not only omitted or `""`). Schemas treat it as `string | null`.
+
 Refresh before `expiry` or on 401.
 
 WebSocket: connect `wss://api.ctechnology.io`, immediately send `{"authorization":"Token …"}` (auth channel). Incoming frames are JSON `{ header, data }`; `header.channel === "vehicle/status"` is forwarded (other channels ignored). Reconnect with exponential backoff (1s → 60s) and a fresh token.

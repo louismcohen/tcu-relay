@@ -3,7 +3,7 @@ import { z } from "zod";
 const headerSchema = z.looseObject({
   api_version: z.string().optional(),
   status: z.string(),
-  message: z.string().optional(),
+  message: z.string().nullable().optional(),
 });
 
 export function apiEnvelopeSchema<T extends z.ZodType>(dataSchema: T) {
