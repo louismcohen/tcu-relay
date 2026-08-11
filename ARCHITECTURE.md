@@ -68,7 +68,7 @@ LiveWire TCU → c.technology cloud
 ```
 POST https://api.ctechnology.io/api/v2.2/account/login/
 Authorization: Token {token}
-WSS wss://api.ctechnology.io  →  {"authorization":"Token …"} on auth
+WSS wss://api.ctechnology.io/api/v2.2/ws/ws-main  →  {"Authorization":"Token …"} on open
 ```
 
 POST `/account/login/` needs a trailing slash (a 301 would turn POST into GET).  
@@ -78,7 +78,7 @@ GET `/vehicle/{id}/status` must **not** have a trailing slash (`/status/` is 404
 
 Refresh before `expiry` or on 401.
 
-WebSocket: connect `wss://api.ctechnology.io`, immediately send `{"authorization":"Token …"}` (auth channel). Incoming frames are JSON `{ header, data }`; `header.channel === "vehicle/status"` is forwarded (other channels ignored). Reconnect with exponential backoff (1s → 60s) and a fresh token.
+WebSocket: connect `wss://api.ctechnology.io/api/v2.2/ws/ws-main` with `Origin: https://api.ctechnology.io` (host root is Django 400; Node `ws` 403s without Origin). Immediately send `{"Authorization":"Token …"}` (official client key; docs say `authorization`). Incoming frames are JSON `{ header, data }`; `header.channel === "vehicle/status"` is forwarded (other channels ignored). Reconnect with exponential backoff (1s → 60s) and a fresh token.
 
 ## Dashboard session
 

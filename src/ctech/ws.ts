@@ -6,7 +6,7 @@ import {
   type VehicleStatusData,
 } from "../types/ctech.js";
 import type { CtechAuth } from "./auth.js";
-import { CTECH_WS_URL } from "./constants.js";
+import { CTECH_WS_ORIGIN, CTECH_WS_URL } from "./constants.js";
 
 export type CtechWsState =
   | "disconnected"
@@ -140,12 +140,14 @@ export function createCtechSocket(
       return;
     }
 
-    const next = new WebSocket(CTECH_WS_URL);
+    const next = new WebSocket(CTECH_WS_URL, {
+      headers: { Origin: CTECH_WS_ORIGIN },
+    });
     socket = next;
 
     next.on("open", () => {
       setState("authenticating");
-      next.send(JSON.stringify({ authorization }));
+      next.send(JSON.stringify({ Authorization: authorization }));
       logger.debug("sent websocket auth");
       setState("connected");
       backoffMs = BACKOFF_INITIAL_MS;
