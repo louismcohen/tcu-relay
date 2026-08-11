@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { defaultMapperContext, mapVehicleStatusToTlm } from "../src/mapper.js";
+import { defaultMapperContext, mapVehicleStatusToTlm, pickHvSoc } from "../src/mapper.js";
 import { vehicleStatusDataSchema, type VehicleStatusData } from "../src/types/ctech.js";
 
 const fixturePath = join(
@@ -67,5 +67,39 @@ describe("mapVehicleStatusToTlm", () => {
       timestamp: "not-a-date",
     };
     expect(mapVehicleStatusToTlm(empty, context)).toBeUndefined();
+  });
+});
+
+describe("pickHvSoc", () => {
+  it("prefers the SoC whose update timestamp is newer", () => {
+    const parkedHd = parkedStatus.vehicle_status_hd;
+    expect(parkedHd).toBeTruthy();
+    if (parkedHd === null || parkedHd === undefined) {
+      return;
+    }
+
+    const newerGeneric: VehicleStatusData = {
+      ...parkedStatus,
+      state_of_charge_pct: 72,
+      last_update: "2026-08-11T02:26:46Z",
+      vehicle_status_hd: {
+        ...parkedHd,
+        hd_hv_battery_soc_pct: 80,
+        hd_last_update: "2026-08-11T00:03:14Z",
+      },
+    };
+    expect(pickHvSoc(newerGeneric)).toBe(72);
+
+    const newerHd: VehicleStatusData = {
+      ...parkedStatus,
+      state_of_charge_pct: 72,
+      last_update: "2026-08-11T00:03:14Z",
+      vehicle_status_hd: {
+        ...parkedHd,
+        hd_hv_battery_soc_pct: 80,
+        hd_last_update: "2026-08-11T02:26:46Z",
+      },
+    };
+    expect(pickHvSoc(newerHd)).toBe(80);
   });
 });

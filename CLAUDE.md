@@ -26,7 +26,8 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing mapping, auth, or relay 
 
 ## Mapping invariants
 
-- HD OEM block first (`vehicle_status_hd`). Generic CAN/Bosch/Novus are unused for this bike.
+- HD OEM block first (`vehicle_status_hd`) for speed/odometer/etc. Generic CAN/Bosch/Novus are unused for this bike.
+- HV SoC: prefer whichever of `hd_hv_battery_soc_pct` / `state_of_charge_pct` has the newer update timestamp.
 - `battery_main_*` is 12 V aux, not HV pack SoC/voltage.
 - Send `speed: 0` when parked.
 - Omit null ABRP fields. Omit `power`, HV `voltage`, `current` until present.

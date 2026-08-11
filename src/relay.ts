@@ -3,7 +3,7 @@ import type { AbrpClient } from "./abrp/client.js";
 import type { Config } from "./config.js";
 import type { CtechAuth } from "./ctech/auth.js";
 import type { CtechSocket } from "./ctech/ws.js";
-import { defaultMapperContext, isParked, mapVehicleStatusToTlm } from "./mapper.js";
+import { defaultMapperContext, isParked, mapVehicleStatusToTlm, pickHvSoc } from "./mapper.js";
 import type { AbrpTlm } from "./types/abrp.js";
 import type { VehicleStatusData } from "./types/ctech.js";
 import type { AbrpSnapshot, CtechSnapshot, StatusSnapshot } from "./types/status.js";
@@ -63,8 +63,8 @@ export function createRelay(
     if (status?.status !== null && status?.status !== undefined) {
       snapshot.vehicleStatus = status.status;
     }
-    const soc = hd?.hd_hv_battery_soc_pct ?? status?.state_of_charge_pct;
-    if (soc !== null && soc !== undefined) {
+    const soc = status === undefined ? undefined : pickHvSoc(status);
+    if (soc !== undefined) {
       snapshot.soc = soc;
     }
     if (status?.latitude !== null && status?.latitude !== undefined) {

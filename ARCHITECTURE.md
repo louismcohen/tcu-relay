@@ -40,7 +40,7 @@ LiveWire TCU → c.technology cloud
 - **One vehicle:** `veh_01kmzq0g8gf82bd0p48zkb3cqe` (LiveWire 2022). ABRP `car_model` = `harleydavidson:livewire:22:16:rwd:livewire`.
 - **No Docker.** Local `pnpm`; Railway Nixpacks from `package.json`.
 - **CT API login** with email/password. Dashboard login compares the same env credentials; it does **not** call CT `/account/login` (would mint a second token).
-- **HV SoC** comes from `vehicle_status_hd.hd_hv_battery_soc_pct` (fallback `state_of_charge_pct`). Never use `battery_main_*` — that is the 12 V aux.
+- **HV SoC** picks the fresher of `vehicle_status_hd.hd_hv_battery_soc_pct` (`hd_last_update`) and `state_of_charge_pct` (`last_update` / `timestamp`). Never use `battery_main_*` — that is the 12 V aux.
 - **Parked speed is 0** when `status === "PARK"` or ignition is off.
 - **No `power` / HV `voltage` / `current`** until those fields appear in the feed.
 - **`hd_charge_status === 0`** means not charging until a charging snapshot confirms the enum.
@@ -51,7 +51,7 @@ LiveWire TCU → c.technology cloud
 | ABRP | Source |
 | --- | --- |
 | `utc` | `timestamp` / `last_update` → epoch seconds |
-| `soc` | `vehicle_status_hd.hd_hv_battery_soc_pct` → `state_of_charge_pct` |
+| `soc` | fresher of `hd_hv_battery_soc_pct` (`hd_last_update`) vs `state_of_charge_pct` (`last_update` / `timestamp`) |
 | `lat` / `lon` | top-level `latitude` / `longitude` |
 | `heading` | `angle` |
 | `speed` | `hd_vehicle_speed_km_h` → `speed`; `0` when parked |

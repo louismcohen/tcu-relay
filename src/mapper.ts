@@ -15,12 +15,24 @@ export function isParked(status: VehicleStatusData): boolean {
   );
 }
 
+/** HV pack SoC: prefer the source with the newest update timestamp. */
+export function pickHvSoc(status: VehicleStatusData): number | undefined {
+  const hd = status.vehicle_status_hd;
+  return freshestNumber(
+    { value: hd?.hd_hv_battery_soc_pct, updatedAt: hd?.hd_last_update },
+    {
+      value: status.state_of_charge_pct,
+      updatedAt: status.last_update ?? status.timestamp,
+    },
+  );
+}
+
 export function mapVehicleStatusToTlm(
   status: VehicleStatusData,
   context: MapperContext,
 ): AbrpTlm | undefined {
   const hd = status.vehicle_status_hd ?? undefined;
-  const soc = firstNumber(hd?.hd_hv_battery_soc_pct, status.state_of_charge_pct);
+  const soc = pickHvSoc(status);
   const utc = isoToEpochSeconds(status.timestamp) ?? isoToEpochSeconds(status.last_update);
 
   if (soc === undefined || utc === undefined) {
@@ -103,6 +115,41 @@ function firstNumber(
     }
   }
   return undefined;
+}
+
+/** Prefer the candidate with the newest `updatedAt`; earlier candidates win ties / missing times. */
+function freshestNumber(
+  ...candidates: ReadonlyArray<{
+    value: number | null | undefined;
+    updatedAt: string | null | undefined;
+  }>
+): number | undefined {
+  let bestValue: number | undefined;
+  let bestMs = Number.NEGATIVE_INFINITY;
+
+  for (const candidate of candidates) {
+    if (!isFiniteNumber(candidate.value)) {
+      continue;
+    }
+    const ms = isoToEpochMs(candidate.updatedAt) ?? Number.NEGATIVE_INFINITY;
+    if (bestValue === undefined || ms > bestMs) {
+      bestValue = candidate.value;
+      bestMs = ms;
+    }
+  }
+
+  return bestValue;
+}
+
+function isoToEpochMs(value: string | null | undefined): number | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) {
+    return undefined;
+  }
+  return ms;
 }
 
 function isFiniteNumber(value: number | null | undefined): value is number {

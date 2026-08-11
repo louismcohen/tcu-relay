@@ -5,6 +5,7 @@ import { fetchVehicleStatus } from "./ctech/rest.js";
 import { createCtechSocket } from "./ctech/ws.js";
 import { broadcastSnapshot, createHttpServer, listen } from "./http.js";
 import { createLogger } from "./logger.js";
+import { pickHvSoc } from "./mapper.js";
 import { createRelay } from "./relay.js";
 
 const startedAt = new Date().toISOString();
@@ -32,7 +33,7 @@ async function main(): Promise<void> {
     {
       vehicleId: status.vehicle_id ?? config.CTECH_VEHICLE_ID,
       vehicleStatus: status.status,
-      soc: status.vehicle_status_hd?.hd_hv_battery_soc_pct ?? status.state_of_charge_pct,
+      soc: pickHvSoc(status),
       timestamp: status.timestamp,
       dryRun: config.DRY_RUN,
     },
@@ -45,9 +46,7 @@ async function main(): Promise<void> {
       {
         timestamp: update.timestamp,
         vehicleStatus: update.status,
-        soc:
-          update.vehicle_status_hd?.hd_hv_battery_soc_pct ??
-          update.state_of_charge_pct,
+        soc: pickHvSoc(update),
       },
       "vehicle status update",
     );
