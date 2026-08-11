@@ -76,4 +76,4 @@ WebSocket: connect `wss://api.ctechnology.io`, immediately send `{"authorization
 
 ## Dashboard session
 
-`POST /api/login` timing-safe compares email/password to `CTECH_EMAIL` / `CTECH_PASSWORD`. Signed httpOnly cookie via `SESSION_SECRET`. `/health` stays public.
+`POST /api/login` timing-safe compares email/password to `CTECH_EMAIL` / `CTECH_PASSWORD`. Signed httpOnly cookie via `SESSION_SECRET`. `/health` stays public. `GET /api/status` and `GET /api/events` (SSE) require the session. Production serves `dist/web` from the same process.

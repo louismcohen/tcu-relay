@@ -3,7 +3,7 @@ import { loadConfig } from "./config.js";
 import { CtechAuth } from "./ctech/auth.js";
 import { fetchVehicleStatus } from "./ctech/rest.js";
 import { CtechWebSocket } from "./ctech/ws.js";
-import { createHttpServer, listen } from "./http.js";
+import { broadcastSnapshot, createHttpServer, listen } from "./http.js";
 import { createLogger } from "./logger.js";
 import { Relay } from "./relay.js";
 
@@ -17,8 +17,11 @@ async function main(): Promise<void> {
   const abrp = new AbrpClient(config.ABRP_API_KEY, config.ABRP_TOKEN, logger);
   const relay = new Relay(config, logger, startedAt, auth, socket, abrp);
 
-  const server = createHttpServer(logger, () => relay.snapshot());
+  const server = createHttpServer(config, logger, () => relay.snapshot());
   await listen(server, config.PORT, logger);
+  relay.onChange(() => {
+    broadcastSnapshot(relay.snapshot());
+  });
 
   const status = await fetchVehicleStatus(
     auth,

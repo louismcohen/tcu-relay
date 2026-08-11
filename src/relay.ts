@@ -21,6 +21,7 @@ export class Relay {
   private lastMissing: string | undefined;
   private lastTlm: AbrpTlm | undefined;
   private lastMessageAt: string | undefined;
+  private readonly changeListeners = new Set<() => void>();
 
   public constructor(
     private readonly config: Config,
@@ -31,6 +32,13 @@ export class Relay {
     private readonly abrp: AbrpClient,
   ) {}
 
+  public onChange(listener: () => void): () => void {
+    this.changeListeners.add(listener);
+    return () => {
+      this.changeListeners.delete(listener);
+    };
+  }
+
   public ingest(status: VehicleStatusData): void {
     const immediate =
       this.lastSentAt === undefined &&
@@ -38,6 +46,7 @@ export class Relay {
       !this.inFlight;
     this.latest = status;
     this.lastMessageAt = new Date().toISOString();
+    this.emitChange();
     this.schedule(immediate ? 0 : this.config.ABRP_SEND_INTERVAL_MS);
   }
 
@@ -121,6 +130,12 @@ export class Relay {
     return snapshot;
   }
 
+  private emitChange(): void {
+    for (const listener of this.changeListeners) {
+      listener();
+    }
+  }
+
   private schedule(delayMs: number): void {
     if (this.sendTimer !== undefined || this.inFlight) {
       return;
@@ -156,6 +171,7 @@ export class Relay {
         this.lastMissing = undefined;
         this.backoffMs = 0;
         this.logger.info({ tlm }, "DRY_RUN ABRP telemetry");
+        this.emitChange();
         return;
       }
 
@@ -169,6 +185,7 @@ export class Relay {
         { status: result.status, missing: result.missing },
         "sent ABRP telemetry",
       );
+      this.emitChange();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "ABRP send failed";
       this.lastResult = "error";
@@ -178,6 +195,7 @@ export class Relay {
           ? BACKOFF_INITIAL_MS
           : Math.min(this.backoffMs * 2, BACKOFF_MAX_MS);
       this.logger.warn({ err: message, backoffMs: this.backoffMs }, "ABRP send failed");
+      this.emitChange();
     } finally {
       this.inFlight = false;
       this.schedule(this.config.ABRP_SEND_INTERVAL_MS);
