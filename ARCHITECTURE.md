@@ -6,6 +6,7 @@ Single Node process: c.technology client + ABRP forwarder + HTTP (health, later 
 LiveWire TCU → c.technology cloud
                     │
                     ├─ REST  POST /api/v2.2/account/login
+                    ├─ REST  GET  /api/v2.2/vehicle-direct-access/
                     ├─ REST  GET  /api/v2.2/vehicle/{id}/status
                     └─ WSS   vehicle/status
                               │
@@ -26,9 +27,10 @@ LiveWire TCU → c.technology cloud
 | `src/logger.ts` | Pino (redacts secrets) |
 | `src/http.ts` | Health (and later login / status / SSE / static UI) |
 | `src/ctech/auth.ts` | `createCtechAuth` — login + token refresh (60s margin) |
-| `src/ctech/rest.ts` | `GET /vehicle/{id}/status` |
+| `src/ctech/rest.ts` | `GET /vehicle-direct-access/` + `GET /vehicle/{id}/status` |
+| `src/ctech/vehicles.ts` | Resolve first owned vehicle, else env |
 | `src/ctech/ws.ts` | `createCtechSocket` — WSS auth + reconnect backoff |
-| `src/types/ctech.ts` | Zod envelopes for login + status |
+| `src/types/ctech.ts` | Zod envelopes for login, status, owned vehicles |
 | `src/mapper.ts` | CT status → ABRP `tlm` |
 | `src/abrp/client.ts` | `createAbrpClient` — `POST /1/tlm/send` |
 | `src/relay.ts` | `createRelay` — coalesce + throttle + `StatusSnapshot` |
@@ -37,7 +39,7 @@ LiveWire TCU → c.technology cloud
 
 ## Standing decisions
 
-- **One vehicle:** `veh_01kmzq0g8gf82bd0p48zkb3cqe` (LiveWire 2022). ABRP `car_model` = `harleydavidson:livewire:22:16:rwd:livewire`.
+- **Active vehicle:** first entry from `GET /vehicle-direct-access/?filter_permission=VEHICLE_IS_OWNER`. If the list is empty or the call fails, `CTECH_VEHICLE_ID`. `ABRP_CAR_MODEL` is required env (no default).
 - **No Docker.** Local `pnpm`; Railway Nixpacks from `package.json`.
 - **CT API login** with email/password. Dashboard login compares the same env credentials; it does **not** call CT `/account/login` (would mint a second token).
 - **HV SoC** picks the fresher of `vehicle_status_hd.hd_hv_battery_soc_pct` (`hd_last_update`) and `state_of_charge_pct` (`last_update` / `timestamp`). Never use `battery_main_*` — that is the 12 V aux.
@@ -72,7 +74,8 @@ WSS wss://api.ctechnology.io/api/v2.2/ws/ws-main  →  {"Authorization":"Token �
 ```
 
 POST `/account/login/` needs a trailing slash (a 301 would turn POST into GET).  
-GET `/vehicle/{id}/status` must **not** have a trailing slash (`/status/` is 404).
+GET `/vehicle/{id}/status` must **not** have a trailing slash (`/status/` is 404).  
+GET `/vehicle-direct-access/?filter_permission=VEHICLE_IS_OWNER` uses a trailing slash (official app).
 
 `header.message` may be `null` (not only omitted or `""`). Schemas treat it as `string | null`.
 

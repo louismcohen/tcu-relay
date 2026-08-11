@@ -1,6 +1,5 @@
 import type { Logger } from "pino";
 import WebSocket, { type RawData } from "ws";
-import type { Config } from "../config.js";
 import {
   wsVehicleStatusMessageSchema,
   type VehicleStatusData,
@@ -29,7 +28,7 @@ const BACKOFF_INITIAL_MS = 1_000;
 const BACKOFF_MAX_MS = 60_000;
 
 export function createCtechSocket(
-  config: Config,
+  vehicleId: string,
   auth: CtechAuth,
   logger: Logger,
 ): CtechSocket {
@@ -113,8 +112,8 @@ export function createCtechSocket(
     }
 
     const status = parsed.data.data;
-    const vehicleId = status.vehicle_id;
-    if (vehicleId !== undefined && vehicleId !== config.CTECH_VEHICLE_ID) {
+    const frameVehicleId = status.vehicle_id;
+    if (frameVehicleId !== undefined && frameVehicleId !== vehicleId) {
       return;
     }
 

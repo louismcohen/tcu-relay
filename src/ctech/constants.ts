@@ -8,6 +8,7 @@ export const TOKEN_REFRESH_MARGIN_MS = 60_000;
 /**
  * Login POST must use a trailing slash (else 301 turns POST into GET).
  * Vehicle status GET must not (slashless `/status` exists; `/status/` is 404).
+ * Owned-vehicle list GET uses a trailing slash (`vehicle-direct-access/?…`).
  */
 export function ctechUrl(path: string, trailingSlash = true): string {
   const trimmed = path.replace(/^\/+/u, "").replace(/\/+$/u, "");

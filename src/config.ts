@@ -15,13 +15,10 @@ const booleanFromEnv = z
 const envSchema = z.object({
   CTECH_EMAIL: z.email(),
   CTECH_PASSWORD: z.string().min(1),
-  CTECH_VEHICLE_ID: z.string().min(1).default("veh_01kmzq0g8gf82bd0p48zkb3cqe"),
+  CTECH_VEHICLE_ID: z.string().min(1),
   ABRP_API_KEY: z.string().min(1),
   ABRP_TOKEN: z.string().min(1),
-  ABRP_CAR_MODEL: z
-    .string()
-    .min(1)
-    .default("harleydavidson:livewire:22:16:rwd:livewire"),
+  ABRP_CAR_MODEL: z.string().min(1),
   ABRP_SEND_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   DRY_RUN: booleanFromEnv.default(true),
   PORT: z.coerce.number().int().positive().default(3000),

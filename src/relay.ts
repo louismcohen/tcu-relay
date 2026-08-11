@@ -2,6 +2,7 @@ import type { Logger } from "pino";
 import type { AbrpClient } from "./abrp/client.js";
 import type { Config } from "./config.js";
 import type { CtechAuth } from "./ctech/auth.js";
+import type { ResolvedVehicle } from "./ctech/vehicles.js";
 import type { CtechSocket } from "./ctech/ws.js";
 import { defaultMapperContext, isParked, mapVehicleStatusToTlm, pickHvSoc } from "./mapper.js";
 import type { AbrpTlm } from "./types/abrp.js";
@@ -24,6 +25,7 @@ export function createRelay(
   auth: CtechAuth,
   socket: CtechSocket,
   abrp: AbrpClient,
+  vehicle: ResolvedVehicle,
 ): Relay {
   let latest: VehicleStatusData | undefined;
   let sendTimer: ReturnType<typeof setTimeout> | undefined;
@@ -109,15 +111,19 @@ export function createRelay(
   }
 
   function snapshot(): StatusSnapshot {
-    return {
+    const result: StatusSnapshot = {
       startedAt,
-      vehicleId: config.CTECH_VEHICLE_ID,
+      vehicleId: vehicle.vehicleId,
       dryRun: config.DRY_RUN,
       sendIntervalMs: config.ABRP_SEND_INTERVAL_MS,
       uptimeSeconds: Math.floor((Date.now() - Date.parse(startedAt)) / 1000),
       ctech: ctechSnapshot(),
       abrp: abrpSnapshot(),
     };
+    if (vehicle.vehicleName !== undefined) {
+      result.vehicleName = vehicle.vehicleName;
+    }
+    return result;
   }
 
   function schedule(delayMs: number): void {

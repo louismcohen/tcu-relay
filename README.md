@@ -33,12 +33,10 @@ pnpm start             # serves API + built dashboard on PORT
 
 ## Environment
 
-See [.env.example](.env.example). Required: `CTECH_EMAIL`, `CTECH_PASSWORD`, `ABRP_API_KEY`, `ABRP_TOKEN`, `SESSION_SECRET` (at least 16 characters).
+See [.env.example](.env.example). Required: `CTECH_EMAIL`, `CTECH_PASSWORD`, `CTECH_VEHICLE_ID` (fallback if the owned-vehicle list is empty), `ABRP_API_KEY`, `ABRP_TOKEN`, `ABRP_CAR_MODEL`, `SESSION_SECRET` (at least 16 characters).
 
 Defaults:
 
-- `CTECH_VEHICLE_ID=veh_01kmzq0g8gf82bd0p48zkb3cqe`
-- `ABRP_CAR_MODEL=harleydavidson:livewire:22:16:rwd:livewire`
 - `ABRP_SEND_INTERVAL_MS=5000`
 - `DRY_RUN=true`
 - `PORT=3000`

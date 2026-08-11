@@ -84,3 +84,19 @@ export const wsVehicleStatusMessageSchema = z.looseObject({
 });
 
 export type WsVehicleStatusMessage = z.infer<typeof wsVehicleStatusMessageSchema>;
+
+export const ownedVehicleSchema = z.object({
+  vehicle_id: z.string().min(1),
+  name: z.string(),
+});
+
+export const ownedVehiclesDataSchema = z.object({
+  vehicles: z.array(ownedVehicleSchema),
+});
+
+export const ownedVehiclesResponseSchema = apiEnvelopeSchema(
+  ownedVehiclesDataSchema,
+);
+
+export type OwnedVehicle = z.infer<typeof ownedVehicleSchema>;
+export type OwnedVehiclesResponse = z.infer<typeof ownedVehiclesResponseSchema>;

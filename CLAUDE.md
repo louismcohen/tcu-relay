@@ -36,7 +36,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing mapping, auth, or relay 
 ## Runtime
 
 - Dashboard login must not call CT `/account/login/`. Compare to env with `timingSafeEqual`.
-- c.technology URLs: trailing slash on POST login; **no** slash on GET vehicle status (`ctechUrl(path, false)`).
+- c.technology URLs: trailing slash on POST login and GET vehicle-direct-access; **no** slash on GET vehicle status (`ctechUrl(path, false)`).
 - `DRY_RUN=true` must not POST to ABRP.
 - Do not add Docker or a second deployable service.
 - Local UI: `pnpm dev` then Vite `:5173`. Production: `pnpm build` + `pnpm start` serves `dist/web`.

@@ -10,7 +10,7 @@
 | `src/index.ts` | Process entry |
 | `src/config.ts` | Env |
 | `src/http.ts` | HTTP |
-| `src/ctech/` | c.technology REST + WS |
+| `src/ctech/` | c.technology REST + WS + vehicle resolve |
 | `src/mapper.ts` | CT → ABRP |
 | `src/abrp/` | ABRP client |
 | `src/relay.ts` | Loop + snapshot |
