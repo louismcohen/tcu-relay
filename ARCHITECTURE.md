@@ -25,6 +25,7 @@ LiveWire TCU → c.technology cloud
 | `src/http.ts` | Health (and later login / status / SSE / static UI) |
 | `src/ctech/auth.ts` | Login + token refresh (60s margin) |
 | `src/ctech/rest.ts` | `GET /vehicle/{id}/status` |
+| `src/ctech/ws.ts` | WSS connect, auth message, reconnect backoff |
 | `src/types/ctech.ts` | Zod envelopes for login + status |
 | `src/mapper.ts` | CT status → ABRP `tlm` |
 | `src/abrp/` | Telemetry POST |
@@ -66,7 +67,9 @@ Authorization: Token {token}
 WSS wss://api.ctechnology.io  →  {"authorization":"Token …"} on auth
 ```
 
-Refresh before `expiry` or on 401. WS reconnects with backoff and re-auths.
+Refresh before `expiry` or on 401.
+
+WebSocket: connect `wss://api.ctechnology.io`, immediately send `{"authorization":"Token …"}` (auth channel). Incoming frames are JSON `{ header, data }`; `header.channel === "vehicle/status"` is forwarded (other channels ignored). Reconnect with exponential backoff (1s → 60s) and a fresh token.
 
 ## Dashboard session
 
