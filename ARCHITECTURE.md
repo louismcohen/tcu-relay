@@ -12,6 +12,8 @@ LiveWire TCU → c.technology cloud
                          tcu-relay
                               │
                     POST https://api.iternio.com/1/tlm/send
+                    Authorization: APIKEY {key}
+                    body: { token, tlm }
                               │
                              ABRP
 ```
@@ -28,8 +30,9 @@ LiveWire TCU → c.technology cloud
 | `src/ctech/ws.ts` | WSS connect, auth message, reconnect backoff |
 | `src/types/ctech.ts` | Zod envelopes for login + status |
 | `src/mapper.ts` | CT status → ABRP `tlm` |
-| `src/abrp/` | Telemetry POST |
-| `src/relay.ts` | Coalesce + throttle + snapshot |
+| `src/abrp/client.ts` | `POST /1/tlm/send` |
+| `src/relay.ts` | Coalesce + throttle + `StatusSnapshot` |
+| `src/types/status.ts` | Dashboard/health snapshot schema |
 | `web/` | Vite + React + shadcn dashboard |
 
 ## Standing decisions

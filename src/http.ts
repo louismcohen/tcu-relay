@@ -1,22 +1,32 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { Logger } from "pino";
-export interface HealthState {
-  readonly startedAt: string;
-  readonly ok: boolean;
-}
+import type { StatusSnapshot } from "./types/status.js";
 
 export function createHttpServer(
   logger: Logger,
-  getHealth: () => HealthState,
+  getSnapshot: () => StatusSnapshot,
 ): Server {
   return createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = req.url ?? "/";
+    const path = url.split("?")[0] ?? "/";
     const method = req.method ?? "GET";
 
-    if (method === "GET" && (url === "/health" || url.startsWith("/health?"))) {
-      const health = getHealth();
-      const body = JSON.stringify(health);
-      res.writeHead(health.ok ? 200 : 503, {
+    if (method === "GET" && path === "/health") {
+      const snapshot = getSnapshot();
+      const ok =
+        snapshot.ctech.lastMessageAt !== undefined ||
+        snapshot.ctech.wsState === "connected" ||
+        snapshot.ctech.wsState === "connecting" ||
+        snapshot.ctech.wsState === "authenticating" ||
+        snapshot.ctech.wsState === "reconnecting";
+      const body = JSON.stringify({
+        ok,
+        startedAt: snapshot.startedAt,
+        wsState: snapshot.ctech.wsState,
+        lastMessageAt: snapshot.ctech.lastMessageAt,
+        lastAbrpResult: snapshot.abrp.lastResult,
+      });
+      res.writeHead(ok ? 200 : 503, {
         "content-type": "application/json; charset=utf-8",
       });
       res.end(body);

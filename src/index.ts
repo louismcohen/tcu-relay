@@ -1,23 +1,25 @@
+import { AbrpClient } from "./abrp/client.js";
 import { loadConfig } from "./config.js";
 import { CtechAuth } from "./ctech/auth.js";
 import { fetchVehicleStatus } from "./ctech/rest.js";
 import { CtechWebSocket } from "./ctech/ws.js";
 import { createHttpServer, listen } from "./http.js";
 import { createLogger } from "./logger.js";
+import { Relay } from "./relay.js";
 
 const startedAt = new Date().toISOString();
 
 async function main(): Promise<void> {
   const config = loadConfig();
   const logger = createLogger(config);
-  const server = createHttpServer(logger, () => ({
-    startedAt,
-    ok: true,
-  }));
+  const auth = new CtechAuth(config, logger);
+  const socket = new CtechWebSocket(config, auth, logger);
+  const abrp = new AbrpClient(config.ABRP_API_KEY, config.ABRP_TOKEN, logger);
+  const relay = new Relay(config, logger, startedAt, auth, socket, abrp);
 
+  const server = createHttpServer(logger, () => relay.snapshot());
   await listen(server, config.PORT, logger);
 
-  const auth = new CtechAuth(config, logger);
   const status = await fetchVehicleStatus(
     auth,
     config.CTECH_VEHICLE_ID,
@@ -33,8 +35,8 @@ async function main(): Promise<void> {
     },
     "bootstrapped vehicle status",
   );
+  relay.ingest(status);
 
-  const socket = new CtechWebSocket(config, auth, logger);
   socket.onStatus((update) => {
     logger.info(
       {
@@ -46,6 +48,7 @@ async function main(): Promise<void> {
       },
       "vehicle status update",
     );
+    relay.ingest(update);
   });
   socket.start();
 }
