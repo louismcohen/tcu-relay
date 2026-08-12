@@ -29,8 +29,9 @@ LiveWire TCU → c.technology cloud
 | `src/ctech/auth.ts` | `createCtechAuth` — login + token refresh (60s margin) |
 | `src/ctech/rest.ts` | `GET /vehicle-direct-access/` + `GET /vehicle/{id}/status` |
 | `src/ctech/vehicles.ts` | Resolve first owned vehicle, else env |
-| `src/ctech/ws.ts` | `createCtechSocket` — WSS auth + reconnect backoff |
+| `src/ctech/ws.ts` | `createCtechSocket` — WSS auth + ping/pong + reconnect backoff |
 | `src/types/ctech.ts` | Zod envelopes for login, status, owned vehicles |
+| `src/freshness.ts` | Stale threshold + WS ping interval |
 | `src/mapper.ts` | CT status → ABRP `tlm` |
 | `src/abrp/client.ts` | `createAbrpClient` — `POST /1/tlm/send` |
 | `src/relay.ts` | `createRelay` — coalesce + throttle + `StatusSnapshot` |
@@ -47,6 +48,7 @@ LiveWire TCU → c.technology cloud
 - **No `power` / HV `voltage` / `current`** until those fields appear in the feed.
 - **`hd_charge_status === 0`** means not charging until a charging snapshot confirms the enum.
 - **Factories over classes.** Stateful modules are `createX` closures; only `Error` subclasses use `class`.
+- **WS liveness ≠ feed freshness.** Protocol ping/pong detects dead sockets. No status ingest for 10 minutes → `stale` (skip ABRP, dashboard badge). Manual `POST /api/reconnect` forces WS reconnect + REST status refresh. Health stays based on WS path only.
 
 ## Field mapping
 
@@ -81,8 +83,10 @@ GET `/vehicle-direct-access/?filter_permission=VEHICLE_IS_OWNER` uses a trailing
 
 Refresh before `expiry` or on 401.
 
-WebSocket: connect `wss://api.ctechnology.io/api/v2.2/ws/ws-main` with `Origin: https://api.ctechnology.io` (host root is Django 400; Node `ws` 403s without Origin). Immediately send `{"Authorization":"Token …"}` (official client key; docs say `authorization`). Incoming frames are JSON `{ header, data }`; `header.channel === "vehicle/status"` is forwarded (other channels ignored). Reconnect with exponential backoff (1s → 60s) and a fresh token.
+WebSocket: connect `wss://api.ctechnology.io/api/v2.2/ws/ws-main` with `Origin: https://api.ctechnology.io` (host root is Django 400; Node `ws` 403s without Origin). Immediately send `{"Authorization":"Token …"}` (official client key; docs say `authorization`). Incoming frames are JSON `{ header, data }`; `header.channel === "vehicle/status"` is forwarded (other channels ignored). Protocol ping every 30s; miss one pong → `terminate` and reconnect. Reconnect with exponential backoff (1s → 60s) and a fresh token.
+
+**Feed freshness:** if no status has been ingested for 10 minutes (`STALE_AFTER_MS`), the snapshot is `stale`, ABRP sends are skipped (`skipped_stale`), and the dashboard shows a stale badge with a Reconnect action. `/health` still reports `stale` but `ok` only reflects WS liveness (so Railway does not restart a quiet parked bike). `POST /api/reconnect` (session) closes/reopens the WS and re-fetches REST vehicle status.
 
 ## Dashboard session
 
-`POST /api/login` timing-safe compares email/password to `CTECH_EMAIL` / `CTECH_PASSWORD`. Signed httpOnly cookie via `SESSION_SECRET`. `/health` stays public. `GET /api/status` and `GET /api/events` (SSE) require the session. Production serves `dist/web` from the same process.
+`POST /api/login` timing-safe compares email/password to `CTECH_EMAIL` / `CTECH_PASSWORD`. Signed httpOnly cookie via `SESSION_SECRET`. `/health` stays public. `GET /api/status`, `GET /api/events` (SSE), and `POST /api/reconnect` require the session. Production serves `dist/web` from the same process.

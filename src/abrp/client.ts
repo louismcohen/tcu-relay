@@ -59,12 +59,25 @@ export function createAbrpClient(
         throw new AbrpClientError("ABRP response failed validation");
       }
 
-      if (parsed.data.missing !== undefined && parsed.data.missing !== "") {
-        return { status: parsed.data.status, missing: parsed.data.missing };
+      const missing = normalizeMissing(parsed.data.missing);
+      if (missing !== undefined) {
+        return { status: parsed.data.status, missing };
       }
       return { status: parsed.data.status };
     },
   };
+}
+
+/** ABRP returns e.g. `"Missing telemetry: power, "` — keep field names only. */
+function normalizeMissing(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw === "") {
+    return undefined;
+  }
+  const fields = raw
+    .replace(/^Missing telemetry:\s*/i, "")
+    .replace(/,\s*$/, "")
+    .trim();
+  return fields === "" ? undefined : fields;
 }
 
 async function readJson(response: Response): Promise<unknown> {

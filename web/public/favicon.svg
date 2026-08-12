@@ -1,0 +1,32 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g filter="url(#filter0_iii_32_2)">
+<rect width="32" height="32" rx="7.11111" fill="#1B1E16"/>
+<rect x="0.5" y="0.5" width="31" height="31" rx="6.61111" stroke="#12140F" stroke-opacity="0.8"/>
+<path d="M14.0005 12.8C13.1647 12.193 12.1258 11.8333 11 11.8333C10.8382 11.8333 10.6783 11.8408 10.5204 11.8553C7.98398 12.0886 6 14.1537 6 16.6667C6 19.336 8.23858 21.5 11 21.5M10.5204 11.8553C10.7623 9.135 13.1232 7 16 7C19.0376 7 21.5 9.38035 21.5 12.3167C21.5 12.4796 21.4924 12.6408 21.4776 12.8M21.5 21.5C23.9853 21.5 26 19.5524 26 17.15C26 14.7476 23.9853 12.8 21.5 12.8C21.4925 12.8 21.485 12.8 21.4776 12.8M21.4776 12.8C21.3753 13.8967 20.9286 14.8973 20.2428 15.7" stroke="#B7E07A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M16.5789 18.0001L14.8048 20.6839C14.5673 21.0432 14.4486 21.2228 14.5222 21.3615C14.5957 21.5001 14.8098 21.5001 15.238 21.5001H16.763C17.1912 21.5001 17.4053 21.5001 17.4788 21.6387C17.5524 21.7774 17.4337 21.957 17.1962 22.3163L15.4221 25.0001" stroke="#B7E07A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<filter id="filter0_iii_32_2" x="0" y="-4" width="32" height="38" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="2"/>
+<feGaussianBlur stdDeviation="1"/>
+<feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+<feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="shape" result="effect1_innerShadow_32_2"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="-4"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+<feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.25 0"/>
+<feBlend mode="overlay" in2="effect1_innerShadow_32_2" result="effect2_innerShadow_32_2"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="2"/>
+<feGaussianBlur stdDeviation="0.25"/>
+<feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+<feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.25 0"/>
+<feBlend mode="overlay" in2="effect2_innerShadow_32_2" result="effect3_innerShadow_32_2"/>
+</filter>
+</defs>
+</svg>

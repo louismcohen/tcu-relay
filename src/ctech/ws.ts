@@ -1,5 +1,6 @@
 import type { Logger } from "pino";
 import WebSocket, { type RawData } from "ws";
+import { WS_PING_INTERVAL_MS } from "../freshness.js";
 import {
   wsVehicleStatusMessageSchema,
   type VehicleStatusData,
@@ -22,6 +23,8 @@ export interface CtechSocket {
   onStatus: (listener: StatusListener) => () => void;
   start: () => void;
   stop: () => void;
+  /** Close any open socket and connect immediately (resets backoff). */
+  reconnect: () => void;
 }
 
 const BACKOFF_INITIAL_MS = 1_000;
@@ -36,6 +39,7 @@ export function createCtechSocket(
   let state: CtechWsState = "disconnected";
   const listeners = new Set<StatusListener>();
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  let pingTimer: ReturnType<typeof setInterval> | undefined;
   let backoffMs = BACKOFF_INITIAL_MS;
   let stopped = true;
   let lastParseError: string | undefined;
@@ -55,7 +59,35 @@ export function createCtechSocket(
     }
   }
 
+  function clearPing(): void {
+    if (pingTimer !== undefined) {
+      clearInterval(pingTimer);
+      pingTimer = undefined;
+    }
+  }
+
+  function startPing(target: WebSocket): void {
+    clearPing();
+    let alive = true;
+    target.on("pong", () => {
+      alive = true;
+    });
+    pingTimer = setInterval(() => {
+      if (target.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      if (!alive) {
+        logger.warn("c.technology websocket ping timeout; terminating");
+        target.terminate();
+        return;
+      }
+      alive = false;
+      target.ping();
+    }, WS_PING_INTERVAL_MS);
+  }
+
   function closeSocket(): void {
+    clearPing();
     if (socket === undefined) {
       return;
     }
@@ -150,6 +182,7 @@ export function createCtechSocket(
       logger.debug("sent websocket auth");
       setState("connected");
       backoffMs = BACKOFF_INITIAL_MS;
+      startPing(next);
     });
 
     next.on("message", (data: RawData) => {
@@ -161,6 +194,7 @@ export function createCtechSocket(
     });
 
     next.on("close", (code: number, reason: Buffer) => {
+      clearPing();
       logger.warn(
         { code, reason: reason.toString("utf8") },
         "c.technology websocket closed",
@@ -192,6 +226,15 @@ export function createCtechSocket(
       clearReconnect();
       closeSocket();
       setState("disconnected");
+    },
+    reconnect() {
+      stopped = false;
+      clearReconnect();
+      // removeAllListeners before close so the close handler does not schedule backoff
+      closeSocket();
+      backoffMs = BACKOFF_INITIAL_MS;
+      logger.info("manual c.technology websocket reconnect");
+      void connect();
     },
   };
 }

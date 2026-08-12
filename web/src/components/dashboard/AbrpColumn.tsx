@@ -5,6 +5,7 @@ import type { StatusSnapshot } from '@shared/status';
 
 export function AbrpColumn({ snapshot }: { readonly snapshot: StatusSnapshot }) {
     const abrp = snapshot.abrp;
+    const skippedStale = abrp.lastResult === 'skipped_stale';
     return (
         <Card>
             <CardTitle>ABRP</CardTitle>
@@ -14,6 +15,7 @@ export function AbrpColumn({ snapshot }: { readonly snapshot: StatusSnapshot }) 
                 accent={
                     abrp.lastResult === 'ok' || abrp.lastResult === 'dry_run'
                 }
+                warn={skippedStale || abrp.lastResult === 'error'}
             />
             <Readout label='Last send' value={formatAge(abrp.lastSentAt)} />
             <Readout label='Missing' value={abrp.lastMissing} warn />

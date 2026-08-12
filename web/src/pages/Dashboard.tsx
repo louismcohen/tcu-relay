@@ -4,7 +4,7 @@ import { RelayColumn } from '@/components/dashboard/RelayColumn';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useStatusStream } from '@/hooks/useStatusStream';
-import { logout } from '@/lib/api';
+import { logout, reconnectFeed } from '@/lib/api';
 
 interface DashboardProps {
     readonly onLoggedOut: () => void;
@@ -16,6 +16,10 @@ export function Dashboard({ onLoggedOut }: DashboardProps) {
     async function onLogout(): Promise<void> {
         await logout();
         onLoggedOut();
+    }
+
+    async function onReconnect(): Promise<void> {
+        await reconnectFeed();
     }
 
     return (
@@ -30,6 +34,9 @@ export function Dashboard({ onLoggedOut }: DashboardProps) {
                     </h1>
                 </div>
                 <div className='flex items-center gap-3'>
+                    {snapshot?.stale === true ? (
+                        <Badge className='border-alert text-alert'>stale</Badge>
+                    ) : null}
                     <Badge
                         className={
                             stream === 'streaming'
@@ -56,7 +63,10 @@ export function Dashboard({ onLoggedOut }: DashboardProps) {
                 </p>
             ) : (
                 <div className='grid min-w-0 gap-4 sm:grid-cols-3'>
-                    <CtechColumn snapshot={snapshot} />
+                    <CtechColumn
+                        snapshot={snapshot}
+                        onReconnect={onReconnect}
+                    />
                     <AbrpColumn snapshot={snapshot} />
                     <RelayColumn snapshot={snapshot} />
                 </div>

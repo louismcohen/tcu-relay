@@ -4,6 +4,7 @@ import type { Config } from "./config.js";
 import type { CtechAuth } from "./ctech/auth.js";
 import type { ResolvedVehicle } from "./ctech/vehicles.js";
 import type { CtechSocket } from "./ctech/ws.js";
+import { isFeedStale } from "./freshness.js";
 import { defaultMapperContext, isParked, mapVehicleStatusToTlm, pickHvSoc } from "./mapper.js";
 import type { AbrpTlm } from "./types/abrp.js";
 import type { VehicleStatusData } from "./types/ctech.js";
@@ -110,13 +111,19 @@ export function createRelay(
     return snapshot;
   }
 
+  function feedIsStale(nowMs: number = Date.now()): boolean {
+    return isFeedStale(lastMessageAt, nowMs, Date.parse(startedAt));
+  }
+
   function snapshot(): StatusSnapshot {
+    const nowMs = Date.now();
     const result: StatusSnapshot = {
       startedAt,
       vehicleId: vehicle.vehicleId,
       dryRun: config.DRY_RUN,
       sendIntervalMs: config.ABRP_SEND_INTERVAL_MS,
-      uptimeSeconds: Math.floor((Date.now() - Date.parse(startedAt)) / 1000),
+      uptimeSeconds: Math.floor((nowMs - Date.parse(startedAt)) / 1000),
+      stale: feedIsStale(nowMs),
       ctech: ctechSnapshot(),
       abrp: abrpSnapshot(),
     };
@@ -140,6 +147,15 @@ export function createRelay(
   async function flush(): Promise<void> {
     const status = latest;
     if (status === undefined) {
+      return;
+    }
+
+    if (feedIsStale()) {
+      lastResult = "skipped_stale";
+      lastMissing = undefined;
+      logger.warn("skipped ABRP send: c.technology feed is stale");
+      emitChange();
+      schedule(config.ABRP_SEND_INTERVAL_MS);
       return;
     }
 

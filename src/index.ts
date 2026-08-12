@@ -39,7 +39,28 @@ async function main(): Promise<void> {
   const abrp = createAbrpClient(config.ABRP_API_KEY, config.ABRP_TOKEN, logger);
   const relay = createRelay(config, logger, startedAt, auth, socket, abrp, vehicle);
 
-  const server = createHttpServer(config, logger, () => relay.snapshot());
+  async function reconnectFeed(): Promise<void> {
+    socket.reconnect();
+    broadcastSnapshot(relay.snapshot());
+    const status = await fetchVehicleStatus(auth, vehicle.vehicleId, logger);
+    logger.info(
+      {
+        vehicleId: status.vehicle_id ?? vehicle.vehicleId,
+        vehicleStatus: status.status,
+        soc: pickHvSoc(status),
+        timestamp: status.timestamp,
+      },
+      "refreshed vehicle status after reconnect",
+    );
+    relay.ingest(status);
+  }
+
+  const server = createHttpServer(
+    config,
+    logger,
+    () => relay.snapshot(),
+    reconnectFeed,
+  );
   await listen(server, config.PORT, logger);
   relay.onChange(() => {
     broadcastSnapshot(relay.snapshot());

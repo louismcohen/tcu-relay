@@ -29,6 +29,15 @@ export async function fetchStatus(): Promise<StatusSnapshot> {
   return statusSnapshotSchema.parse(raw);
 }
 
+export async function reconnectFeed(): Promise<void> {
+  const response = await fetch("/api/reconnect", { method: "POST" });
+  if (!response.ok) {
+    throw new Error(
+      response.status === 401 ? "unauthorized" : "reconnect failed",
+    );
+  }
+}
+
 export function parseSnapshot(raw: string): StatusSnapshot {
   return statusSnapshotSchema.parse(JSON.parse(raw) as unknown);
 }

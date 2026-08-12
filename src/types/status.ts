@@ -35,10 +35,11 @@ export const abrpSnapshotSchema = z.object({
 export const statusSnapshotSchema = z.object({
 	startedAt: z.string(),
 	vehicleId: z.string(),
-	vehicleName: z.string(),
+	vehicleName: z.string().optional(),
 	dryRun: z.boolean(),
 	sendIntervalMs: z.number(),
 	uptimeSeconds: z.number(),
+	stale: z.boolean(),
 	ctech: ctechSnapshotSchema,
 	abrp: abrpSnapshotSchema,
 });

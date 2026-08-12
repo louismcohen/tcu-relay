@@ -35,9 +35,10 @@ export function createHttpServer(
   config: Config,
   logger: Logger,
   getSnapshot: () => StatusSnapshot,
+  reconnect: () => Promise<void>,
 ): Server {
   return createServer((req: IncomingMessage, res: ServerResponse) => {
-    void handleRequest(config, logger, getSnapshot, req, res);
+    void handleRequest(config, logger, getSnapshot, reconnect, req, res);
   });
 }
 
@@ -62,6 +63,7 @@ async function handleRequest(
   config: Config,
   logger: Logger,
   getSnapshot: () => StatusSnapshot,
+  reconnect: () => Promise<void>,
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
@@ -98,6 +100,15 @@ async function handleRequest(
       if (!requireSession(config, req, res)) {
         return;
       }
+      writeJson(res, 200, getSnapshot());
+      return;
+    }
+
+    if (method === "POST" && pathName === "/api/reconnect") {
+      if (!requireSession(config, req, res)) {
+        return;
+      }
+      await reconnect();
       writeJson(res, 200, getSnapshot());
       return;
     }
@@ -196,13 +207,13 @@ function attachSse(
 
 function writeHealth(res: ServerResponse, snapshot: StatusSnapshot): void {
   const ok =
-    snapshot.ctech.lastMessageAt !== undefined ||
     snapshot.ctech.wsState === "connected" ||
     snapshot.ctech.wsState === "connecting" ||
     snapshot.ctech.wsState === "authenticating" ||
     snapshot.ctech.wsState === "reconnecting";
   writeJson(res, ok ? 200 : 503, {
     ok,
+    stale: snapshot.stale,
     startedAt: snapshot.startedAt,
     wsState: snapshot.ctech.wsState,
     lastMessageAt: snapshot.ctech.lastMessageAt,

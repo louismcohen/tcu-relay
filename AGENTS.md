@@ -13,6 +13,7 @@
 | `src/ctech/` | c.technology REST + WS + vehicle resolve |
 | `src/mapper.ts` | CT → ABRP |
 | `src/abrp/` | ABRP client |
+| `src/freshness.ts` | Stale + WS ping constants |
 | `src/relay.ts` | Loop + snapshot |
 | `src/types/` | Zod schemas |
 | `web/` | Dashboard UI (Vite + React + shadcn) |
