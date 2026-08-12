@@ -21,22 +21,22 @@ LiveWire TCU → c.technology cloud
 
 ## Modules
 
-| Path | Role |
-| --- | --- |
-| `src/config.ts` | Zod-validated env |
-| `src/logger.ts` | Pino (redacts secrets) |
-| `src/http.ts` | Health (and later login / status / SSE / static UI) |
-| `src/ctech/auth.ts` | `createCtechAuth` — login + token refresh (60s margin) |
-| `src/ctech/rest.ts` | `GET /vehicle-direct-access/` + `GET /vehicle/{id}/status` |
-| `src/ctech/vehicles.ts` | Resolve first owned vehicle, else env |
-| `src/ctech/ws.ts` | `createCtechSocket` — WSS auth + ping/pong + reconnect backoff |
-| `src/types/ctech.ts` | Zod envelopes for login, status, owned vehicles |
-| `src/freshness.ts` | Stale threshold + WS ping interval |
-| `src/mapper.ts` | CT status → ABRP `tlm` |
-| `src/abrp/client.ts` | `createAbrpClient` — `POST /1/tlm/send` |
-| `src/relay.ts` | `createRelay` — coalesce + throttle + `StatusSnapshot` |
-| `src/types/status.ts` | Dashboard/health snapshot schema |
-| `web/` | Vite + React + shadcn dashboard |
+| Path                    | Role                                                           |
+| ----------------------- | -------------------------------------------------------------- |
+| `src/config.ts`         | Zod-validated env                                              |
+| `src/logger.ts`         | Pino (redacts secrets)                                         |
+| `src/http.ts`           | Health (and later login / status / SSE / static UI)            |
+| `src/ctech/auth.ts`     | `createCtechAuth` — login + token refresh (60s margin)         |
+| `src/ctech/rest.ts`     | `GET /vehicle-direct-access/` + `GET /vehicle/{id}/status`     |
+| `src/ctech/vehicles.ts` | Resolve first owned vehicle, else env                          |
+| `src/ctech/ws.ts`       | `createCtechSocket` — WSS auth + ping/pong + reconnect backoff |
+| `src/types/ctech.ts`    | Zod envelopes for login, status, owned vehicles                |
+| `src/freshness.ts`      | Stale threshold + WS ping interval                             |
+| `src/mapper.ts`         | CT status → ABRP `tlm`                                         |
+| `src/abrp/client.ts`    | `createAbrpClient` — `POST /1/tlm/send`                        |
+| `src/relay.ts`          | `createRelay` — coalesce + throttle + `StatusSnapshot`         |
+| `src/types/status.ts`   | Dashboard/health snapshot schema                               |
+| `web/`                  | Vite + React + shadcn dashboard                                |
 
 ## Standing decisions
 
@@ -52,20 +52,20 @@ LiveWire TCU → c.technology cloud
 
 ## Field mapping
 
-| ABRP | Source |
-| --- | --- |
-| `utc` | `timestamp` / `last_update` → epoch seconds |
-| `soc` | fresher of `hd_hv_battery_soc_pct` (`hd_last_update`) vs `state_of_charge_pct` (`last_update` / `timestamp`) |
-| `lat` / `lon` | top-level `latitude` / `longitude` |
-| `heading` | `angle` |
-| `speed` | `hd_vehicle_speed_km_h` → `speed`; `0` when parked |
-| `odometer` | `hd_odometer_m` / 1000 → `total_odometer` / 1000 (meters) |
-| `est_battery_range` | `hd_range_remaining_lt_avg_m` / 1000 |
-| `batt_temp` | `hd_hv_battery_temperature_avg_deg_c` |
-| `is_charging` | `hd_charge_status !== 0` |
-| `is_parked` | `status === "PARK"` or `hd_ignition_power_mode === 0` or `!ignition_on` |
-| `car_model` | `ABRP_CAR_MODEL` |
-| `capacity` | `15.5` |
+| ABRP                | Source                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `utc`               | `timestamp` / `last_update` → epoch seconds                                                                  |
+| `soc`               | fresher of `hd_hv_battery_soc_pct` (`hd_last_update`) vs `state_of_charge_pct` (`last_update` / `timestamp`) |
+| `lat` / `lon`       | top-level `latitude` / `longitude`                                                                           |
+| `heading`           | `angle`                                                                                                      |
+| `speed`             | `hd_vehicle_speed_km_h` → `speed`; `0` when parked                                                           |
+| `odometer`          | `hd_odometer_m` / 1000 → `total_odometer` / 1000 (meters)                                                    |
+| `est_battery_range` | `hd_range_remaining_lt_avg_m` / 1000                                                                         |
+| `batt_temp`         | `hd_hv_battery_temperature_avg_deg_c`                                                                        |
+| `is_charging`       | `hd_charge_status !== 0`                                                                                     |
+| `is_parked`         | `status === "PARK"` or `hd_ignition_power_mode === 0` or `!ignition_on`                                      |
+| `car_model`         | `ABRP_CAR_MODEL`                                                                                             |
+| `capacity`          | `13.4`                                                                                                       |
 
 ## Auth
 
