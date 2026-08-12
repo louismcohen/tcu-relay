@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
 
 export const SESSION_COOKIE = "tcu_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -6,6 +6,18 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 interface SessionPayload {
   readonly email: string;
   readonly exp: number;
+}
+
+/** Stable HMAC key derived from dashboard login credentials (no separate env secret). */
+export function deriveSessionSecret(email: string, password: string): string {
+  const key = hkdfSync(
+    "sha256",
+    password,
+    email,
+    "tcu-relay-session-cookie",
+    32,
+  );
+  return Buffer.from(key).toString("base64url");
 }
 
 export function createSessionCookie(email: string, secret: string): string {

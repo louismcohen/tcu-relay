@@ -170,7 +170,7 @@ async function handleLogin(
   }
 
   res.writeHead(204, {
-    "set-cookie": createSessionCookie(parsed.data.email, config.SESSION_SECRET),
+    "set-cookie": createSessionCookie(parsed.data.email, config.sessionSecret),
   });
   res.end();
 }
@@ -180,7 +180,7 @@ function requireSession(
   req: IncomingMessage,
   res: ServerResponse,
 ): boolean {
-  const session = readSession(req.headers.cookie, config.SESSION_SECRET);
+  const session = readSession(req.headers.cookie, config.sessionSecret);
   if (session === undefined) {
     writeJson(res, 401, { error: "unauthorized" });
     return false;

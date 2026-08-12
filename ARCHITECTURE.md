@@ -89,4 +89,4 @@ WebSocket: connect `wss://api.ctechnology.io/api/v2.2/ws/ws-main` with `Origin: 
 
 ## Dashboard session
 
-`POST /api/login` timing-safe compares email/password to `CTECH_EMAIL` / `CTECH_PASSWORD`. Signed httpOnly cookie via `SESSION_SECRET`. `/health` stays public. `GET /api/status`, `GET /api/events` (SSE), and `POST /api/reconnect` require the session. Production serves `dist/web` from the same process.
+`POST /api/login` timing-safe compares email/password to `CTECH_EMAIL` / `CTECH_PASSWORD`. Cookie HMAC key is HKDF-derived from those credentials (no separate `SESSION_SECRET`). `/health` stays public. `GET /api/status`, `GET /api/events` (SSE), and `POST /api/reconnect` require the session. Production serves `dist/web` from the same process.

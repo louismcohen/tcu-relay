@@ -1,5 +1,6 @@
 import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
+import { deriveSessionSecret } from "./session.js";
 
 loadDotenv();
 
@@ -25,13 +26,18 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
-  SESSION_SECRET: z.string().min(16),
 });
 
-export type Config = z.infer<typeof envSchema>;
+export type Config = z.infer<typeof envSchema> & {
+  readonly sessionSecret: string;
+};
 
 export function loadConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): Config {
-  return envSchema.parse(env);
+  const parsed = envSchema.parse(env);
+  return {
+    ...parsed,
+    sessionSecret: deriveSessionSecret(parsed.CTECH_EMAIL, parsed.CTECH_PASSWORD),
+  };
 }

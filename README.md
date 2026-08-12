@@ -33,7 +33,7 @@ pnpm start             # serves API + built dashboard on PORT
 
 ## Environment
 
-See [.env.example](.env.example). Required: `CTECH_EMAIL`, `CTECH_PASSWORD`, `CTECH_VEHICLE_ID` (fallback if the owned-vehicle list is empty), `ABRP_API_KEY`, `ABRP_TOKEN`, `ABRP_CAR_MODEL`, `SESSION_SECRET` (at least 16 characters).
+See [.env.example](.env.example). Required: `CTECH_EMAIL`, `CTECH_PASSWORD`, `CTECH_VEHICLE_ID` (fallback if the owned-vehicle list is empty), `ABRP_API_KEY`, `ABRP_TOKEN`, `ABRP_CAR_MODEL`. Dashboard session cookies are signed with a key derived from the CT email/password.
 
 Defaults:
 
@@ -52,7 +52,7 @@ Always-on Node service (not a cron). Nixpacks/Railpack from `package.json` — n
 | Start | `pnpm start` |
 | Healthcheck | `GET /health` |
 
-Set the same env vars as `.env.example` in the Railway dashboard, including a long random `SESSION_SECRET`. No volume or database.
+Set the same env vars as `.env.example` in the Railway dashboard. No volume or database.
 
 After deploy, open the public URL and log in with the c.technology email/password.
 
