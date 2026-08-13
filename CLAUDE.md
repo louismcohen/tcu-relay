@@ -41,4 +41,4 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing mapping, auth, or relay 
 - Do not add Docker or a second deployable service.
 - Local UI: `pnpm dev` then Vite `:5173`. Production: `pnpm build` + `pnpm start` serves `dist/web`.
 - Railway: build `pnpm build`, start `pnpm start`, health `GET /health` (`ok` follows WS liveness; `stale` is informational).
-- WS protocol ping every 30s; miss one pong → terminate/reconnect. No status ingest for 10 minutes → stale (skip ABRP, dashboard badge); reconnect via dashboard/`POST /api/reconnect`.
+- WS protocol ping every 30s; miss one pong → terminate/reconnect. No status ingest for 10 minutes → stale (skip ABRP, dashboard badge). REST status poll every 5 minutes and on WS `connected` so quiet parked WS does not false-stale while CT `last_update` is fresh; reconnect via dashboard/`POST /api/reconnect`.

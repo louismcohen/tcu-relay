@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { isFeedStale, STALE_AFTER_MS } from "../src/freshness.js";
+import {
+  isFeedStale,
+  REST_REFRESH_INTERVAL_MS,
+  STALE_AFTER_MS,
+} from "../src/freshness.js";
+
+describe("freshness constants", () => {
+  it("polls REST before the stale threshold", () => {
+    expect(REST_REFRESH_INTERVAL_MS).toBeLessThan(STALE_AFTER_MS);
+  });
+});
 
 describe("isFeedStale", () => {
   const startedAtMs = Date.parse("2026-08-11T03:33:21.000Z");

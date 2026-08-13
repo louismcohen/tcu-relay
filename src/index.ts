@@ -4,6 +4,7 @@ import { createCtechAuth } from "./ctech/auth.js";
 import { fetchOwnedVehicles, fetchVehicleStatus } from "./ctech/rest.js";
 import { resolveVehicle, type ListedVehicle } from "./ctech/vehicles.js";
 import { createCtechSocket } from "./ctech/ws.js";
+import { REST_REFRESH_INTERVAL_MS } from "./freshness.js";
 import { broadcastSnapshot, createHttpServer, listen } from "./http.js";
 import { createLogger } from "./logger.js";
 import { pickHvSoc } from "./mapper.js";
@@ -39,20 +40,43 @@ async function main(): Promise<void> {
   const abrp = createAbrpClient(config.ABRP_API_KEY, config.ABRP_TOKEN, logger);
   const relay = createRelay(config, logger, startedAt, auth, socket, abrp, vehicle);
 
+  let refreshInFlight: Promise<void> | undefined;
+
+  async function refreshFromRest(reason: string): Promise<void> {
+    if (refreshInFlight !== undefined) {
+      await refreshInFlight;
+      return;
+    }
+    refreshInFlight = (async () => {
+      const status = await fetchVehicleStatus(auth, vehicle.vehicleId, logger);
+      logger.info(
+        {
+          reason,
+          vehicleId: status.vehicle_id ?? vehicle.vehicleId,
+          vehicleStatus: status.status,
+          soc: pickHvSoc(status),
+          timestamp: status.timestamp,
+        },
+        "refreshed vehicle status from REST",
+      );
+      relay.ingest(status);
+    })();
+    try {
+      await refreshInFlight;
+    } finally {
+      refreshInFlight = undefined;
+    }
+  }
+
   async function reconnectFeed(): Promise<void> {
     socket.reconnect();
     broadcastSnapshot(relay.snapshot());
-    const status = await fetchVehicleStatus(auth, vehicle.vehicleId, logger);
-    logger.info(
-      {
-        vehicleId: status.vehicle_id ?? vehicle.vehicleId,
-        vehicleStatus: status.status,
-        soc: pickHvSoc(status),
-        timestamp: status.timestamp,
-      },
-      "refreshed vehicle status after reconnect",
-    );
-    relay.ingest(status);
+    try {
+      await refreshFromRest("manual_reconnect");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "REST refresh failed";
+      logger.warn({ err: message }, "REST refresh after reconnect failed");
+    }
   }
 
   const server = createHttpServer(
@@ -66,18 +90,13 @@ async function main(): Promise<void> {
     broadcastSnapshot(relay.snapshot());
   });
 
-  const status = await fetchVehicleStatus(auth, vehicle.vehicleId, logger);
-  logger.info(
-    {
-      vehicleId: status.vehicle_id ?? vehicle.vehicleId,
-      vehicleStatus: status.status,
-      soc: pickHvSoc(status),
-      timestamp: status.timestamp,
-      dryRun: config.DRY_RUN,
-    },
-    "bootstrapped vehicle status",
-  );
-  relay.ingest(status);
+  try {
+    await refreshFromRest("bootstrap");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "bootstrap status failed";
+    logger.error({ err: message }, "failed to bootstrap vehicle status");
+    throw error;
+  }
 
   socket.onStatus((update) => {
     logger.info(
@@ -90,6 +109,25 @@ async function main(): Promise<void> {
     );
     relay.ingest(update);
   });
+
+  socket.onState((state) => {
+    broadcastSnapshot(relay.snapshot());
+    if (state !== "connected") {
+      return;
+    }
+    void refreshFromRest("ws_connected").catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "REST refresh failed";
+      logger.warn({ err: message }, "REST refresh after websocket connected failed");
+    });
+  });
+
+  setInterval(() => {
+    void refreshFromRest("periodic").catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "REST refresh failed";
+      logger.warn({ err: message }, "periodic REST status refresh failed");
+    });
+  }, REST_REFRESH_INTERVAL_MS);
+
   socket.start();
 }
 

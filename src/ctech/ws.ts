@@ -16,11 +16,13 @@ export type CtechWsState =
   | "reconnecting";
 
 export type StatusListener = (status: VehicleStatusData) => void;
+export type StateListener = (state: CtechWsState) => void;
 
 export interface CtechSocket {
   getState: () => CtechWsState;
   getLastParseError: () => string | undefined;
   onStatus: (listener: StatusListener) => () => void;
+  onState: (listener: StateListener) => () => void;
   start: () => void;
   stop: () => void;
   /** Close any open socket and connect immediately (resets backoff). */
@@ -38,6 +40,7 @@ export function createCtechSocket(
   let socket: WebSocket | undefined;
   let state: CtechWsState = "disconnected";
   const listeners = new Set<StatusListener>();
+  const stateListeners = new Set<StateListener>();
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   let pingTimer: ReturnType<typeof setInterval> | undefined;
   let backoffMs = BACKOFF_INITIAL_MS;
@@ -50,6 +53,9 @@ export function createCtechSocket(
     }
     state = next;
     logger.info({ wsState: next }, "c.technology websocket state");
+    for (const listener of stateListeners) {
+      listener(next);
+    }
   }
 
   function clearReconnect(): void {
@@ -215,6 +221,12 @@ export function createCtechSocket(
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+      };
+    },
+    onState(listener) {
+      stateListeners.add(listener);
+      return () => {
+        stateListeners.delete(listener);
       };
     },
     start() {
